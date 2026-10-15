@@ -225,6 +225,19 @@ body{font-size:15.5px;line-height:1.6}h1{font-size:28px}h2{font-size:21px}h3{fon
 :root[data-pal=soft][data-theme=dark]{--bg:#131a1d;--panel:#1b2428;--panel2:#202a2f;--ink:#e6ecf0;--line:#2a353b;--accent:#5fb3a4;--accent2:#8fd0c4;--accent3:#3d8d80;--accent-s:#1e3a36;--muted:#94a3ad;--mute-s:#242f35;--ok:#66b88f;--ok-s:#1d372b;--warn:#d9ab55;--warn-s:#38301b;--bad:#e08a83;--bad-s:#3e2523;--info:#86aee0;--info-s:#1f2f48;--b1:#15332f;--b2:#221f3a;--b3:#2f241d;--dot:#232e33;--sh:0 1px 2px rgba(0,0,0,.25),0 8px 26px rgba(0,0,0,.22)}
 :root[data-pal=soft] .card{border-color:transparent}
 :root[data-pal=soft] .btn.pri{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+
+/* строки с отметкой «Готово» темнеют */
+.tbl tbody tr.row-done td{background:rgba(20,30,40,.085);color:var(--muted)}
+.tbl tbody tr.row-done td:first-child{box-shadow:inset 3px 0 0 var(--ok)}
+.tbl tbody tr.row-done:hover td{background:rgba(20,30,40,.13)}
+.tbl tbody tr.row-done b{font-weight:600}
+.tbl tbody tr.row-skip td{opacity:.6}
+:root[data-theme=dark] .tbl tbody tr.row-done td{background:rgba(0,0,0,.32)}
+:root[data-theme=dark] .tbl tbody tr.row-done:hover td{background:rgba(0,0,0,.42)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]):not([data-theme=dark]) .tbl tbody tr.row-done td{background:rgba(0,0,0,.32)}}
+@media print{.tbl tbody tr.row-done td{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.tdc{border-left:5px solid var(--line)}.tdc.bad{border-left-color:var(--bad)}.tdc.warn{border-left-color:var(--warn)}.tdc.mute{border-left-color:var(--muted)}
+.tdc.bad .tdn{color:var(--bad)}.tdc.warn .tdn{color:var(--warn)}
 </style></head><body><div id="app"></div>
 <script>
 'use strict';
@@ -244,8 +257,12 @@ const cpk=s=>nn(String(s??'').toUpperCase().replace(/Ё/g,'Е').replace(LEGRX,'$
 const LEG=new Set(['ООО','АО','ПАО','ЗАО','ИП','ГК','СК','СЗ','ТСН','ТСЖ','ПКФ','МК','ПК','ХК','ТД','ФИЛИАЛ','ЛТД','ХП','НПО','НПП','ОП','ПКО']);
 const toks=s=>{s=String(s??'').toUpperCase().replace(/Ё/g,'Е').replace(/\((.*?)\)/g,' $1 ').replace(/[ABCEHKMOPTXY]/g,c=>HM[c]);return new Set((s.match(/[0-9A-ZА-Я]+/g)||[]).filter(w=>!LEG.has(w)&&!/^\d{8,}$/.test(w)))};
 const subset=(a,b)=>{for(const x of a)if(!b.has(x))return false;return true};
-const tokmatch=(a,b)=>{if(!a.size||!b.size)return false;const[sm,bg]=a.size<=b.size?[a,b]:[b,a];return subset(sm,bg)&&[...sm].join('').length>=4};
-const cpmatchK=(a,b)=>!!(a&&b&&(a===b||(a.length>=5&&b.length>=5&&(a.includes(b)||b.includes(a)||a.slice(0,7)===b.slice(0,7)))));
+const tokmatch=(a,b)=>{if(!a.size||!b.size)return false;const[sm,bg]=a.size<=b.size?[a,b]:[b,a];if(!subset(sm,bg))return false;const ls=[...sm].join('').length;return ls>=4&&ls*2>[...bg].join('').length};
+const cpmatchK=(a,b)=>{if(!a||!b)return false;if(a===b)return true;if(a.length<5||b.length<5)return false;
+  const[sh,lg]=a.length<=b.length?[a,b]:[b,a];
+  if(lg.includes(sh))return sh.length*10>=lg.length*6;   // одно название внутри другого, но не «Лидер» в «Лидерстрой»
+  let k=0;while(k<sh.length&&sh[k]===lg[k])k++;            // отличаются только последними 1–2 буквами (опечатка, окончание)
+  return k>=7&&k>=sh.length-2&&lg.length-sh.length<=2};
 const MON={января:1,февраля:2,марта:3,апреля:4,мая:5,июня:6,июля:7,августа:8,сентября:9,октября:10,ноября:11,декабря:12};
 function parseDate(v){
   if(v==null||v==='')return '';
@@ -309,7 +326,7 @@ const IDB={
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
 /* ===== состояние пользователя ===== */
-const blankState=()=>({v:1,marks:{},att:{},extraAtt:{},tracker:{cols:null,rows:{},order:[],ts:0},views:{},uploads:{},ideas:{},intake:{},debts:{},orig:{},snaps:{},access:{},dupok:{},seen:{},odiff:{},mgrfix:{},log:[],settings:{prefix:'',from:2022},updated:0});
+const blankState=()=>({v:1,marks:{},att:{},extraAtt:{},tracker:{cols:null,rows:{},order:[],ts:0},views:{},uploads:{},ideas:{},intake:{},debts:{},orig:{},snaps:{},access:{},dupok:{},seen:{},odiff:{},mgrfix:{},cpalias:{},log:[],settings:{prefix:'',from:2022},updated:0});
 let ST=blankState();
 function touch(){if(VIEW)return;ST.updated=nowTs();persistSoon();syncSoon()}
 const persistSoon=debounce(()=>{IDB.set('state',ST)},400);
@@ -323,7 +340,7 @@ function mergeState(a,b){ // a — локальное, b — удалённое;
   out.views=mergeMap(a.views||{},b.views||{});
   out.ideas=mergeMap(a.ideas||{},b.ideas||{});
   out.uploads=mergeMap(a.uploads||{},b.uploads||{});
-  for(const k of ['intake','debts','orig','snaps','access','dupok','seen','odiff','mgrfix'])out[k]=mergeMap(a[k]||{},b[k]||{});
+  for(const k of ['intake','debts','orig','snaps','access','dupok','seen','odiff','mgrfix','cpalias'])out[k]=mergeMap(a[k]||{},b[k]||{});
   const ta=a.tracker||{},tb=b.tracker||{};
   out.tracker={cols:(tb.ts||0)>(ta.ts||0)?tb.cols:ta.cols,ts:Math.max(ta.ts||0,tb.ts||0),rows:mergeMap(ta.rows||{},tb.rows||{}),order:[]};
   const ord=[...(ta.order||[]),...(tb.order||[])];out.tracker.order=[...new Set(ord)].filter(id=>out.tracker.rows[id]&&!out.tracker.rows[id].del);
@@ -454,7 +471,11 @@ function buildIndex(recs){
   }
   idx.all=recs;return idx;
 }
-function sameCp(x,c,tkx,ckx){return (x.inn&&c.inn&&x.inn===c.inn)||tokmatch(tkx,c.tk)||cpmatchK(ckx,c.ck)}
+const ALIAS={same:new Set(),diff:new Set()};
+const pairKey=(a,b)=>a<b?a+'|'+b:b+'|'+a;
+function rebuildAlias(){ALIAS.same=new Set();ALIAS.diff=new Set();const A=(typeof ST!=='undefined'&&ST.cpalias)||{};for(const k in A){if(A[k]&&A[k].v==='same')ALIAS.same.add(k);else if(A[k]&&A[k].v==='diff')ALIAS.diff.add(k)}}
+const aliasOf=(ka,kb)=>{if(!ka||!kb||ka===kb)return 0;const p=pairKey(ka,kb);return ALIAS.diff.has(p)?-1:ALIAS.same.has(p)?1:0};
+function sameCp(x,c,tkx,ckx){const al=aliasOf(ckx,c.ck);if(al)return al>0;return (x.inn&&c.inn&&x.inn===c.inn)||tokmatch(tkx,c.tk)||cpmatchK(ckx,c.ck)}
 function matchOne(x,idx,tkx,ckx,kx){
   // кандидаты по номеру
   let cand=kx?[...(idx.byk.get(kx)||[])]:[];
@@ -499,7 +520,7 @@ const ckey=c=>nn(c.num)+'|'+cpk(c.cp)+'|'+(c.date||'');
 function srcInfo(key){const u=ST.uploads[key];if(u)return{label:'загружено '+new Date(u.ts).toLocaleDateString('ru-RU'),n:u.n,name:u.name,ts:u.ts,up:true};return null}
 
 function buildAll(){
-  _dups=null;_attr=null;REG=null;
+  rebuildAlias();_dups=null;_attr=null;REG=null;
   if(VIEW){ // режим просмотра: готовый срез без пересчёта сверок
     DOCS=DATA.docs;CPDOCS=null;CON=DATA.contracts.map(c=>({...c}));CONMAP=new Map();C1=[];SBIS=[];SXREC=[];
     for(const c of CON){c.key=ckey(c);CONMAP.set(c.key,c);c.m1=[];c.msb=[]}
@@ -520,8 +541,9 @@ function buildAll(){
   const opisC=CON.filter(c=>c.k==='o');
   if(d1||uo){const r=matchSource(opisC,C1);for(const c of opisC){if(c.y!=null&&c.y<2022&&!uo)continue;const x=r.get(c.key);c.c1=x.code;c.m1c=x.m;c.todo1c=TODO1C[x.code]||''}}
   if(dsb){const r=matchSource(opisC,SBIS);for(const c of opisC){const x=r.get(c.key);c.sb=x.code;c.msb=x.m}}
-  if(dsx||uo){const r=matchSource(opisC,SXREC);for(const c of opisC){if(c.y!=null&&c.y<2022)continue;const x=r.get(c.key);c.msx=['ok','closed','dup','datediff','cpdate'].includes(x.code)?x.m:[];const archFound=(c.docs&&c.docs.length)||(archIdx.get(nn(c.num))||[]).length;c.sx=x.code==='ok'||x.code==='closed'||x.code==='dup'||x.code==='datediff'?'ok':(archFound?'arch':'no')}}
-  if(uo)for(const c of opisC){const k=nn(c.num);c.docs=(archIdx.get(k)||[]).filter(i=>{const d=DOCS[i];return cpmatchK(cpk(d[2]),cpk(c.cp))||(c.date&&d[4]===c.date)})}
+  const docsFor=c=>(archIdx.get(nn(c.num))||[]).filter(i=>{const d=DOCS[i];return aliasOf(cpk(d[2]),cpk(c.cp))>0||(aliasOf(cpk(d[2]),cpk(c.cp))===0&&cpmatchK(cpk(d[2]),cpk(c.cp)))||(c.date&&d[4]===c.date)});
+  if(dsx||uo){const r=matchSource(opisC,SXREC);for(const c of opisC){if(c.y!=null&&c.y<2022)continue;const x=r.get(c.key);c.msx=['ok','closed','dup','datediff','cpdate'].includes(x.code)?x.m:[];const archFound=(c.docs&&c.docs.length)||docsFor(c).length;c.sx=x.code==='ok'||x.code==='closed'||x.code==='dup'||x.code==='datediff'?'ok':(archFound?'arch':'no')}}
+  if(uo)for(const c of opisC){c.docs=docsFor(c)}
   MG1C=null;for(const c of opisC)c.mgrOpis=c.mgr||'';
   {let mrows=ST.uploads.mgr1c?ST.uploads.mgr1c.rows:null;
    if(!mrows&&ST.uploads.c1&&C1.some(r=>r.mgr)){const from=ST.settings.from||2022;mrows=C1.filter(r=>(!r.org||/техностайл/i.test(r.org))&&(!r.date||+String(r.date).slice(0,4)>=from)).map((r,i)=>({i,num:r.num,name:r.name,cp:r.cp,inn:r.inn,date:r.date,state:r.state,generic:r.generic,mgr:r.mgr}))}
@@ -1713,7 +1735,7 @@ function openContract(key){
   const msb=(c.msb||[]).map(i=>SBIS[i]).filter(Boolean);
   const html=`<div class="ch"><div class="muted">${c.k==='o'?'Договор из описи':'Договор найден только в архивах'}${c.row?` · строка описи ${c.row}`:''}</div><h2>${esc(c.cp)}</h2>
   <div class="cl"><div><label>№ договора</label><b class="mono">${esc(c.num||'—')}</b> ${cbtn('№',c.num||'')}</div><div><label>Дата</label><b>${fmtD(c.date)||'—'}</b> ${c.date?cbtn('дата',fmtD(c.date)):''}</div><div><label>ИНН</label><b>${esc(c.inn||'—')}</b> ${c.inn?cbtn('ИНН',c.inn):''}</div><div><label>Менеджер</label><b>${esc(mgrLabel(c)||'не указан')}</b></div></div>
-  <div class="btns">${cbtn('Контрагент',c.cp)}${cbtn('«Контрагент № номер»',c.cp+' '+(c.num||''))}</div></div>
+  <div class="btns">${cbtn('Контрагент',c.cp)}${cbtn('«Контрагент № номер»',c.cp+' '+(c.num||''))}${!VIEW&&c.k==='o'?`<button class="btn sm" data-arch="${esc(key)}">${ic('search',14)}<span>Искать в архивах</span></button>`:''}</div></div>
   ${c.k==='o'?`<div class="stat4 stat5"><div><label>Опись</label><span class="pill ok">есть</span></div><div><label>1С</label>${pill(L1C,c.c1)}</div>${HIDE()?'':`<div><label>СХЭД</label>${pill(LSX,c.sx)}</div><div><label>СБИС</label>${pill(LSB,c.sb)}</div><div><label>Архивы</label>${docs.length?tag(docs.length+' файл.','info'):'<span class="muted">нет</span>'}</div>`}</div>`:''}
   ${g.length?`<div class="callout ${g.some(x=>x.tone==='bad')?'bad':'warn'}"><b>Что сделать</b><p>${esc(todoText(c)).replace(/ \| /g,'<br>')}</p></div>`:(c.k==='o'&&inScope(c)?'<div class="callout ok"><b>Всё сведено</b><p>Договор найден во всех проверенных источниках.</p></div>':'')}
   ${isOpen(c)?(()=>{const a=issueAge(c);const ov=a!=null&&a>slaLimit();return `<div class="callout ${ov?'bad':''}"><b>Вопрос открыт ${a==null?'—':a+' дн.'}${ov?' — просрочен':''}</b><p class="sm">${(ST.settings.slaMode||'seen')==='contract'?'Считаем от даты договора.':'Считаем с момента, когда приложение впервые увидело пробел.'} Срок — ${slaLimit()} дней.</p></div>`})():''}
@@ -2673,8 +2695,10 @@ function mappingModal(k,rows,hdr,H,map,fname,sheetName,opts){
         toast(`Загружено ${num(out.length)} записей. Сверка пересчитана.`,'ok',5000);
         if(k==='mgr1c')mgrSummary();else uploadSummary(k,before);
       };
-      if(k==='opis'){const d=opisDiff(curOpis(),out);showOpisDiff(d,fname,!!(opts&&opts.dry),()=>{const h=compactDiff(d,fname);ST.odiff[h.ts]=h;apply()},opts&&opts.cancel);return}
-      apply();
+      const go2=()=>{if(k==='opis'){const d=opisDiff(curOpis(),out);showOpisDiff(d,fname,!!(opts&&opts.dry),()=>{const h=compactDiff(d,fname);ST.odiff[h.ts]=h;apply()},opts&&opts.cancel);return}
+      apply()};
+      let qc=null;try{qc=uploadCheck(k,out,map,fname,parts)}catch(e){console.error(e)}
+      if(qc&&qc.length&&!(opts&&opts.dry)&&!(opts&&opts.auto&&!qc.some(x=>x.t==='bad')))uploadCheckModal(k,fname,qc,go2,opts&&opts.cancel);else go2();
     };
   });
   if(opts&&opts.auto)setTimeout(()=>{const b=document.querySelector('#mp-ok');if(b)b.click();if(document.querySelector('#modal.open')&&!document.querySelector('#od-ok'))document.body.classList.remove('quiet')},30);
@@ -4347,8 +4371,8 @@ function covHTML(c){
 
 /* ===== запуск приложения ===== */
 const NAVG=[
-  {items:[['overview','Старт','home'],['compare','Сверка','scale']]},
-  {t:'Мои задачи',items:[['exports','Выгрузки — скачать Excel','dl'],['managers','Менеджеры — кому что','users'],['contracts','Найти договор','file'],['intake','Новый документ','plus'],['report','Отчёт для главбуха','print']]},
+  {items:[['overview','Старт','home'],['today','Сегодня','check'],['compare','Сверка','scale']]},
+  {t:'Мои задачи',items:[['exports','Выгрузки — скачать Excel','dl'],['managers','Менеджеры — кому что','users'],['contracts','Найти договор','file'],['pairs','Спорные совпадения','scale'],['intake','Новый документ','plus'],['report','Отчёт для главбуха','print']]},
   {t:'Ещё',fold:true,items:[['recon','Что где есть','scale'],['uploads','Источники и загрузки','up'],['docs','Документы в архивах','folder'],['attach','Приложения','clip'],['pack','Пакеты в СХЭД','box'],['ctrl/orig','Оригиналы','shield'],['ctrl/edo','ЭДО или бумага','check'],['ctrl/dups','Дубли','copy'],['ctrl/attr','Атрибуты СХЭД','search'],['ctrl/sla','Срок вопросов','warn'],['ctrl/ver','Версии описи','list'],['access','Доступы','key'],['tracker','Трекер доработок','list'],['ideas','Идеи','bulb'],['settings','Настройки','gear']]}
 ];
 const navAllowed=p=>{if(!VIEW)return true;const[n,s]=p.split('/');return VIEW_NAV[VIEW.kind].includes(n)&&(n!=='ctrl'||['orig','edo','sla'].includes(s))};
@@ -4415,7 +4439,7 @@ function route(){
   document.body.classList.remove('navopen');closeDrawer();closeModal();
   try{V[v](VIEWEL,sub||undefined)}catch(e){console.error(e);VIEWEL.innerHTML=`<div class="card"><h3>Ошибка отображения</h3><pre class="sm">${esc(e.stack||e)}</pre></div>`}
   try{addHint(v,sub)}catch(e){}
-  if(v!=='overview'&&v!=='compare'&&!VIEW)remMount(VIEWEL);
+  if(v!=='overview'&&v!=='compare'&&v!=='today'&&!VIEW)remMount(VIEWEL);
   window.scrollTo(0,0);updBadges();
 }
 function updBadges(){
@@ -5024,6 +5048,336 @@ V.compare=function(el){
   cmpSearch(el);
   el.querySelectorAll('[data-chg]').forEach(b=>b.onclick=()=>cmpDiffExcel(b.dataset.chg).catch(e=>toast(e.message||'Ошибка','bad')));
 };
+
+/* ===== feat2: затемнение «Готово», поиск в архивах, спорные совпадения, «Сегодня», единый отчёт, проверка выгрузок, копии ===== */
+
+/* --- A. строка договора темнеет, когда стоит отметка «Готово» --- */
+function markRows(){
+  if(!ST||!ST.marks)return;
+  document.querySelectorAll('tr[data-k]').forEach(tr=>{
+    const m=ST.marks[tr.dataset.k];const s=m&&m.s;
+    tr.classList.toggle('row-done',s==='done');tr.classList.toggle('row-skip',s==='skip');
+  });
+}
+window.addEventListener('DOMContentLoaded',()=>{
+  try{new MutationObserver(debounce(markRows,30)).observe(document.body,{childList:true,subtree:true})}catch(e){}
+});
+
+/* --- B. поиск договора в архивах --- */
+let AIX=null;
+const AI_STOP=new Set(['СТРОЙ','ГРУПП','ГРУППА','КОМПАНИЯ','МОНТАЖ','СЕРВИС','ТОРГ','ТРЕЙД','ХОЛДИНГ','ПРОЕКТ','СТРОИТЕЛЬНАЯ','ТЕХНО','РЕГИОН','ИНВЕСТ','ГРАД','МОСКВА']);
+const TYPEREL=/^(договор|дополнит|допсогл|приложен|специфик|соглашен)/i;
+function archIdx(){
+  if(AIX&&AIX.src===DOCS)return AIX;
+  const n=DOCS.length;const ix={src:DOCS,cp:new Array(n),nm:new Array(n),fn:new Array(n),tk:new Array(n),byNum:new Map(),byTok:new Map()};
+  for(let i=0;i<n;i++){
+    const d=DOCS[i];ix.cp[i]=cpk(d[2]);ix.nm[i]=nn(d[3]);ix.fn[i]=nn(d[10]||d[9]||'');ix.tk[i]=toks(d[2]);
+    if(ix.nm[i]){let a=ix.byNum.get(ix.nm[i]);if(!a)ix.byNum.set(ix.nm[i],a=[]);a.push(i)}
+    for(const t of ix.tk[i]){if(t.length<3)continue;let a=ix.byTok.get(t);if(!a)ix.byTok.set(t,a=[]);a.push(i)}
+  }
+  AIX=ix;return ix;
+}
+/* кандидаты для договора c; q — ручной запрос {cp,num}; scan — просмотреть и имена файлов */
+function archFind(c,q,scan){
+  const ix=archIdx();const cpT=q&&q.cp!=null?q.cp:c.cp,numT=q&&q.num!=null?q.num:c.num;
+  const ck=cpk(cpT),tk=toks(cpT),nk=nn(numT);const date=c.date||'';
+  const big=[...tk].filter(t=>t.length>=4&&!AI_STOP.has(t));
+  const cand=new Set();
+  if(nk&&ix.byNum.has(nk))for(const i of ix.byNum.get(nk))cand.add(i);
+  const toksQ=[...tk].filter(t=>t.length>=3);
+  for(const t of toksQ){const a=ix.byTok.get(t);if(a&&(a.length<4000||toksQ.length===1))for(const i of a)cand.add(i)}
+  if(scan&&nk&&nk.length>=3)for(let i=0;i<DOCS.length;i++)if(ix.fn[i].includes(nk))cand.add(i);
+  const out=[];
+  for(const i of cand){
+    const d=DOCS[i];
+    const al=aliasOf(ix.cp[i],ck);
+    const cpS=al>0||(al===0&&ck&&(cpmatchK(ix.cp[i],ck)||tokmatch(ix.tk[i],tk)));
+    const cpL=!cpS&&al===0&&big.some(t=>ix.tk[i].has(t));
+    const numE=!!(nk&&ix.nm[i]===nk),numF=!numE&&!!(nk&&nk.length>=3&&ix.fn[i].includes(nk));
+    const dt=!!(date&&d[4]===date),rel=TYPEREL.test(d[1]||'');
+    let ok=(cpS&&(numE||numF||dt||rel))||((numE||numF)&&(cpL||dt))||(numE&&rel);
+    if(!ok)continue;
+    const sc=(cpS?3:cpL?1.5:0)+(numE?3:numF?2:0)+(dt?2:0)+(rel?.5:0);
+    let lab,tone;
+    if(cpS&&numE&&dt){lab='Точное совпадение: контрагент, номер и дата';tone='ok'}
+    else if(cpS&&numE){lab='Совпали контрагент и номер';tone='ok'}
+    else if(cpS&&numF){lab='Контрагент совпал, номер есть в имени файла';tone='ok'}
+    else if(cpS&&dt){lab='Контрагент и дата совпали, номер другой';tone='warn'}
+    else if(cpS){lab='Договор этого контрагента — номер и дата другие';tone='info'}
+    else if(cpL&&(numE||numF)){lab='Похожее название и номер';tone='warn'}
+    else if(numE&&dt){lab='Номер и дата совпали, контрагент другой';tone='warn'}
+    else{lab='Совпал только номер — контрагент другой';tone='bad'}
+    out.push({i,sc,lab,tone});
+  }
+  out.sort((a,b)=>b.sc-a.sc||String(DOCS[b.i][4]||'').localeCompare(String(DOCS[a.i][4]||'')));
+  return out;
+}
+function archRowHTML(r){
+  const d=DOCS[r.i];
+  return `<div class="rec doc"><div>${tag(r.lab,r.tone)}</div><div style="margin-top:4px"><b>${esc(d[1])}</b> · ${esc(d[2])} · № ${esc(d[3]||'без №')} · ${fmtD(d[4])||'без даты'}</div><small>${esc(d[9])}</small><div class="btns">${openBtn(`data-opd="${r.i}"`,'Открыть','pri')}${cbtn('путь',(ST.settings.prefix||'')+d[9])}</div></div>`;
+}
+function archSearch(key){
+  const c=CONMAP.get(key);if(!c)return;
+  if(!DOCS.length){toast('Индекс архивов пуст — загрузите реестр документов на странице «Источники»','warn',6000);return}
+  openModal(`<h3>Поиск в архивах</h3><p class="muted sm">${esc(c.cp)} · № ${esc(c.num||'—')} · ${fmtD(c.date)||'без даты'}. Просмотрено ${num(DOCS.length)} ${plural(DOCS.length,'документ','документа','документов')} из подключённых архивов.</p>
+  <div class="row" style="gap:8px;flex-wrap:wrap;margin:8px 0"><input id="as-cp" class="inp" style="flex:1;min-width:200px" value="${esc(c.cp)}" placeholder="Название контрагента"><input id="as-num" class="inp" style="width:150px" value="${esc(c.num||'')}" placeholder="№ договора"><button class="btn pri" id="as-go">${ic('search',15)} Искать</button></div>
+  <div id="as-res" class="asres" style="max-height:52vh;overflow:auto"></div>
+  <div class="row end" style="margin-top:10px"><button class="btn" id="as-x">Закрыть</button></div>`,m=>{
+    const paint=()=>{
+      const L=archFind(c,{cp:m.querySelector('#as-cp').value,num:m.querySelector('#as-num').value},true);
+      const R=m.querySelector('#as-res');
+      if(!L.length){R.innerHTML=`<div class="callout"><b>В архивах ничего подходящего нет</b><p class="sm">Ни по названию контрагента, ни по номеру договора. Значит, скана нет в тех архивах, что подключены к приложению. Где искать дальше: ЭДО (СБИС / Диадок), почта менеджера, бумажный оригинал в бухгалтерии. Можно также изменить название или номер выше и поискать ещё раз (например, без «ООО» или с другим написанием).</p></div>`;return}
+      const good=L.filter(x=>x.tone==='ok').length;
+      R.innerHTML=`<p class="sm">${good?`<b>Найдено ${good} ${plural(good,'надёжное совпадение','надёжных совпадения','надёжных совпадений')}</b>`:'<b>Надёжных совпадений нет</b> — ниже только похожее, проверьте глазами'}${L.length>40?' · показаны первые 40 из '+L.length:''}</p>`+L.slice(0,40).map(archRowHTML).join('');
+    };
+    m.querySelector('#as-go').onclick=paint;m.querySelectorAll('#as-cp,#as-num').forEach(i=>i.onkeydown=e=>{if(e.key==='Enter')paint()});
+    m.querySelector('#as-x').onclick=closeModal;paint();
+  });
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-arch]');if(!b)return;e.preventDefault();e.stopPropagation();const k=b.dataset.arch;closeDrawer();setTimeout(()=>archSearch(k),60)},true);
+async function archBulkExcel(){
+  if(!DOCS.length){toast('Индекс архивов пуст — загрузите реестр документов','warn',6000);return}
+  const L=CON.filter(c=>c.k==='o'&&inScope(c)&&c.sx==='no'&&!isResolved(c));
+  if(!L.length){toast('Всех договоров, которых нет в СХЭД, нет и в «не найдено» — искать нечего');return}
+  toast('Ищу в архивах '+L.length+' договоров…','info',2500);await new Promise(r=>setTimeout(r,30));
+  const found=[],none=[];
+  for(const c of L){
+    const R=archFind(c,null,false).filter(x=>x.tone!=='bad');
+    if(R.length)found.push([c,R]);else none.push(c);
+  }
+  found.sort((a,b)=>b[1][0].sc-a[1][0].sc);
+  const head=['№','Менеджер','Год','Контрагент (как в Описи)','№ договора','Дата','Уверенность','Тип найденного','Контрагент в архиве','№ в архиве','Дата в архиве','Путь в архиве','Ещё вариантов'];
+  const rowsF=found.map(([c,R],i)=>{const d=DOCS[R[0].i];return[i+1,mgrLabel(c)||'',c.y,c.cp,c.num||'',fmtD(c.date),R[0].lab,d[1],d[2],d[3]||'',fmtD(d[4]),(ST.settings.prefix||'')+d[9],R.length-1]});
+  const head2=['№','Менеджер','Год','Контрагент','№ договора','Дата','Что сделать'];
+  const rowsN=none.map((c,i)=>[i+1,mgrLabel(c)||'',c.y,c.cp,c.num||'',fmtD(c.date),'Скана нет в архивах: запросить в ЭДО / у менеджера / найти бумажный оригинал']);
+  const sh={'Сводка':{rows:[['Поиск договоров в архивах'],['На '+fmtD(today())+' · договоры, которых нет в СХЭД'],[],['Что','Договоров'],['Искали',L.length],['Нашлись кандидаты в архивах',found.length],['В архивах не нашлись',none.length]],hdr:3,widths:[40,14]}};
+  if(found.length)sh['Нашлись в архивах']={rows:[['Нашлись кандидаты в архивах ('+found.length+')'],['Проверьте глазами колонку «Уверенность»: зелёное — надёжно, жёлтое — похоже, но не точно.'],[],head,...rowsF],hdr:3,widths:[5,20,7,38,18,12,38,18,34,16,12,60,10],tab:XL_TAB.ok,tone:(v,i,j)=>j===6&&v?(/^Точное|^Совпали|номер есть/.test(v)?'ok':'warn'):null};
+  if(none.length)sh['В архивах нет']={rows:[['В архивах не нашлись ('+none.length+')'],[],[],head2,...rowsN],hdr:3,widths:[5,20,7,40,18,12,70],tab:XL_TAB.bad};
+  await exportXLSX('Поиск_в_архивах_'+today()+'.xlsx',sh,{title:'Как читать — поиск в архивах',readme:[['Что это','Для каждого договора, которого нет в СХЭД, программа искала файл в индексе ваших архивов — по контрагенту, номеру и дате.'],['Зелёный','Надёжное совпадение — файл скорее всего этот.','ok'],['Жёлтый','Похоже, но не точно — проверьте вручную.','warn']]});
+  logAct('Поиск в архивах: найдено '+found.length+' из '+L.length);toast('Файл сформирован');
+}
+
+/* --- C. спорные совпадения контрагентов --- */
+function c1ById(i){return C1.find(x=>x.i===i)||C1[i]}
+function pairsList(){
+  const from=ST.settings.from||2022;
+  const P=new Map();
+  const add=(c,r,src,type)=>{
+    if(!r||!r.cp||!c.cp)return;
+    const ka=cpk(c.cp),kb=cpk(r.cp);if(!ka||!kb||ka===kb)return;
+    if(c.inn&&r.inn&&c.inn===r.inn)return;
+    const pk=pairKey(ka,kb);if(ALIAS.same.has(pk)||ALIAS.diff.has(pk))return;
+    let o=P.get(pk);if(!o){o={pk,a:c.cp,b:r.cp,src:new Set(),type,list:[]};P.set(pk,o)}
+    o.src.add(src);if(type==='num')o.type='num';if(!o.list.includes(c))o.list.push(c);
+  };
+  const okc=['ok','closed','dup','datediff'];
+  for(const c of CON){
+    if(c.k!=='o'||c.y==null||c.y<from)continue;
+    if(c.c1==='numoth')for(const i of c.m1c||[])add(c,c1ById(i),'1С','num');
+    else if(okc.includes(c.c1))for(const i of c.m1c||[])add(c,c1ById(i),'1С','fuzzy');
+    if(!HIDE()){
+      if(c.sb==='numoth')for(const i of c.msb||[])add(c,SBIS[i],'СБИС','num');
+      else if(okc.includes(c.sb))for(const i of c.msb||[])add(c,SBIS[i],'СБИС','fuzzy');
+    }
+  }
+  return [...P.values()].sort((x,y)=>(x.type===y.type?0:x.type==='num'?-1:1)||y.list.length-x.list.length);
+}
+function pairDecide(pk,v,a,b){
+  ST.cpalias[pk]={v,a,b,ts:nowTs()};
+  logAct((v==='same'?'Одна фирма: ':'Разные фирмы: ')+a+' / '+b);
+  touch();buildAll();
+}
+V.pairs=function(el){
+  const F=V.pairs.F=V.pairs.F||{t:'all',q:''};
+  const all=pairsList();
+  const nNum=all.filter(p=>p.type==='num').length,nFz=all.length-nNum;
+  const decided=Object.entries(ST.cpalias||{}).filter(([k,v])=>v&&v.v).sort((a,b)=>(b[1].ts||0)-(a[1].ts||0));
+  el.innerHTML=`<div class="pghead"><div><h1>Спорные совпадения</h1><p class="muted">Где Опись и другая система называют контрагента по-разному. Ответьте один раз — «одна фирма» или «разные» — и программа запомнит ответ и пересчитает сверку.</p></div>
+  <div class="row"><button class="btn" id="pr-x">${ic('dl',16)} Excel</button></div></div>
+  <div class="tiles3 row" style="gap:10px;flex-wrap:wrap;margin-bottom:12px"><div class="card" style="flex:1;min-width:180px"><div class="muted sm">Номер совпал, контрагент другой</div><div style="font-size:26px;font-weight:700">${num(nNum)}</div></div><div class="card" style="flex:1;min-width:180px"><div class="muted sm">Названия похожи, но записаны по-разному</div><div style="font-size:26px;font-weight:700">${num(nFz)}</div></div><div class="card" style="flex:1;min-width:180px"><div class="muted sm">Уже решено</div><div style="font-size:26px;font-weight:700">${num(decided.length)}</div></div></div>
+  <div class="card"><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px"><span class="seg" id="pr-t">${[['all','Все'],['num','Номер совпал'],['fuzzy','Названия похожи']].map(([k,l])=>`<button data-t="${k}" class="${F.t===k?'on':''}">${l}</button>`).join('')}</span><div class="fsearch" style="flex:1;min-width:200px">${ic('search',17)}<input id="pr-q" placeholder="Поиск по названию" value="${esc(F.q)}"></div></div><div id="pr-r"></div></div>
+  <details class="card" ${decided.length?'':'hidden'}><summary><b>Уже решённые (${decided.length})</b></summary><div class="tscroll"><table class="tbl sm"><thead><tr><th>Название 1</th><th>Название 2</th><th>Решение</th><th></th></tr></thead><tbody>${decided.map(([k,v])=>`<tr><td>${esc(v.a||k.split('|')[0])}</td><td>${esc(v.b||k.split('|')[1])}</td><td>${v.v==='same'?tag('одна фирма','ok'):tag('разные фирмы','mute')}</td><td><a data-undo="${esc(k)}">отменить</a></td></tr>`).join('')}</tbody></table></div></details>`;
+  const paint=()=>{
+    const q=F.q.trim().toLowerCase();
+    const L=all.filter(p=>(F.t==='all'||p.type===F.t)&&(!q||(p.a+' '+p.b).toLowerCase().includes(q)));
+    el.querySelector('#pr-r').innerHTML=L.length?`<div class="tscroll"><table class="tbl"><thead><tr><th>В Описи</th><th>В другой системе</th><th>Где</th><th>Договоры</th><th>Это одна фирма?</th></tr></thead><tbody>${L.slice(0,200).map(p=>`<tr data-pk="${esc(p.pk)}"><td><b>${esc(p.a)}</b></td><td><b>${esc(p.b)}</b><br><small class="muted">${p.type==='num'?'номер договора тот же':'названия похожи'}</small></td><td>${[...p.src].join(', ')}</td><td>${p.list.slice(0,3).map(c=>`<a data-ck="${esc(c.key)}">№ ${esc(c.num||'—')}${c.date?' от '+fmtD(c.date):''}</a>`).join('<br>')}${p.list.length>3?`<br><small class="muted">и ещё ${p.list.length-3}</small>`:''}</td><td style="white-space:nowrap"><button class="btn sm pri" data-v="same">Одна фирма</button> <button class="btn sm" data-v="diff">Разные</button></td></tr>`).join('')}</tbody></table></div>${L.length>200?`<p class="muted sm">Показаны первые 200 из ${L.length}.</p>`:''}`:'<div class="callout ok"><b>Спорных совпадений нет</b><p class="sm">Все названия контрагентов либо совпали, либо вы уже ответили на вопросы.</p></div>';
+    el.querySelectorAll('#pr-r tr[data-pk]').forEach(tr=>{
+      const p=L.find(x=>x.pk===tr.dataset.pk);
+      tr.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{pairDecide(p.pk,b.dataset.v,p.a,p.b);toast(b.dataset.v==='same'?'Запомнила: это одна фирма':'Запомнила: это разные фирмы');V.pairs(el)});
+      tr.querySelectorAll('[data-ck]').forEach(a=>a.onclick=()=>openContract(a.dataset.ck));
+    });
+  };
+  paint();
+  el.querySelectorAll('#pr-t button').forEach(b=>b.onclick=()=>{F.t=b.dataset.t;V.pairs(el)});
+  el.querySelector('#pr-q').oninput=debounce(e=>{F.q=e.target.value;paint()},200);
+  el.querySelectorAll('[data-undo]').forEach(a=>a.onclick=()=>{delete ST.cpalias[a.dataset.undo];ST.cpalias={...ST.cpalias};touch();buildAll();V.pairs(el)});
+  el.querySelector('#pr-x').onclick=()=>exportXLSX('Спорные_совпадения_'+today()+'.xlsx',{'Спорные совпадения':{rows:[['Спорные совпадения контрагентов'],[],[],['Название в Описи','Название в другой системе','Тип','Где','Договоров','Примеры (№ договора)'],...all.map(p=>[p.a,p.b,p.type==='num'?'номер тот же, контрагент другой':'названия похожи',[...p.src].join(', '),p.list.length,p.list.slice(0,5).map(c=>c.num).join('; ')])],hdr:3,widths:[40,40,30,12,11,40],tab:XL_TAB.warn}},{title:'Как читать — спорные совпадения',readme:[['Что это','Пары названий, которые программа не может уверенно считать одной фирмой.'],['Что делать','Откройте раздел «Спорные совпадения» и ответьте по каждой паре.']]});
+};
+HINTS.pairs=['Спорные совпадения','Если в Описи и в 1С (или СБИС) один и тот же номер договора, но контрагент записан по-разному, программа не знает, это опечатка или разные фирмы. Ответьте один раз — она запомнит.','Ответ «одна фирма» засчитает договор найденным; «разные» — оставит как есть и больше не спросит.'];
+
+/* --- D. «Сегодня» --- */
+V.today=function(el){
+  if(VIEW){GOTO('#overview');return}
+  const sc=CON.filter(c=>c.k==='o'&&inScope(c)&&!isResolved(c));
+  const W0=['none','todo','work'];
+  const items=[];
+  const add=(n,tone,title,text,go,preset,btn)=>{if(n>0)items.push({n,tone,title,text,go,preset,btn})};
+  try{const L=remList();if(L.length){const miss=L.filter(x=>!x.old).length;items.push({n:L.length,tone:'warn',title:miss?'Загрузите выгрузки':'Обновите выгрузки',text:L.map(x=>x.l+' — '+x.t).join('; '),go:'#overview',btn:'Открыть «Старт»'})}}catch(e){}
+  try{const n=pairsList().length;add(n,'warn','Ответьте на спорные совпадения',n+' '+plural(n,'пара названий','пары названий','пар названий')+' контрагентов программа не может уверенно сравнить.','#pairs',null,'Разобрать')}catch(e){}
+  const n1=sc.filter(c=>C1_NEW.includes(c.c1)).length;
+  add(n1,'bad','Завести в 1С','Договоры из Описи, которых в 1С нет. Нужны менеджеры или главбух.','#contracts',{c1:C1_NEW,work:W0},'Показать договоры');
+  const n1c=sc.filter(c=>['numoth','datediff','cpdate','dup','closed','generic'].includes(c.c1)).length;
+  add(n1c,'warn','Проверить в 1С','Договор в 1С есть, но данные не сходятся (дата, номер, контрагент, дубль).','#contracts',{c1:['numoth','datediff','cpdate','dup','closed','generic'],work:W0},'Показать договоры');
+  if(!HIDE()){
+    const nsx=sc.filter(c=>c.sx==='no'||c.sx==='arch').length;
+    add(nsx,'bad','Загрузить в СХЭД','Договоров нет в СХЭД. Часть из них лежит в архивах — их можно взять оттуда.','#contracts',{sx:['no','arch'],work:W0},'Показать договоры');
+    const nsp=sc.filter(c=>c.sx==='part').length;
+    add(nsp,'warn','Дозагрузить приложения в СХЭД','В СХЭД есть договор, но не хватает спецификаций или допсоглашений.','#contracts',{sx:['part'],work:W0},'Показать договоры');
+  }
+  try{if(MG1C){const nn0=(MG1C.none||[]).length,nd=(MG1C.diff||[]).length;add(nd,'warn','Менеджер в Описи и в 1С разный',nd+' '+plural(nd,'договор','договора','договоров')+': проверьте, кто прав.','#managers/_check',null,'Разобрать');add(nn0,'mute','Менеджер не определён','Ни в Описи, ни в 1С не указан менеджер.','#managers/_check',null,'Посмотреть')}}catch(e){}
+  try{const o=slaRows().filter(r=>r.over).length;add(o,'bad','Просроченные вопросы','Вопросы, которые висят дольше нормы.','#ctrl/sla',null,'Открыть')}catch(e){}
+  try{const last=LS.get('sxed_lastbk',0);if(Date.now()-last>7*864e5)items.push({n:1,tone:'mute',title:'Сделайте резервную копию',text:last?'Последняя копия — '+Math.floor((Date.now()-last)/864e5)+' дн. назад.':'Копий ещё нет.',go:'#settings/sync',btn:'Открыть настройки'})}catch(e){}
+  const dayStart=new Date();dayStart.setHours(0,0,0,0);
+  const doneToday=Object.values(ST.marks||{}).filter(m=>m&&m.s==='done'&&(m.ts||0)>=dayStart.getTime()).length;
+  const tone=t=>({bad:'bad',warn:'warn',mute:'mute'})[t]||'mute';
+  el.innerHTML=`<div class="pghead"><div><h1>Сегодня</h1><p class="muted">Что стоит сделать, начиная с самого важного. Нажмите кнопку — откроется нужный список.</p></div><div class="row">${doneToday?tag('закрыто сегодня: '+doneToday,'ok'):''}</div></div>
+  ${items.length?items.map(it=>`<section class="card tdc ${tone(it.tone)}" style="display:flex;gap:16px;align-items:center;flex-wrap:wrap"><div class="tdn" style="font-size:30px;font-weight:700;min-width:64px;text-align:center">${num(it.n)}</div><div style="flex:1;min-width:220px"><h3 style="margin:0 0 2px">${esc(it.title)}</h3><p class="muted sm" style="margin:0">${esc(it.text)}</p></div><button class="btn pri" data-go="${it.go}" ${it.preset?`data-preset='${esc(JSON.stringify(it.preset))}'`:''}>${esc(it.btn||'Открыть')}</button></section>`).join(''):`<div class="callout ok"><b>На сегодня всё</b><p>Открытых задач нет. Загляните в «Сверку», когда появятся новые выгрузки.</p></div>`}
+  <section class="card"><h3>Ещё</h3><div class="row" style="gap:10px;flex-wrap:wrap"><button class="btn" id="td-arch">${ic('search',15)} Найти в архивах договоры, которых нет в СХЭД</button><button class="btn" data-go="#report">${ic('file',15)} Отчёт для главбуха</button><button class="btn" data-go="#compare">${ic('scale',15)} Сверка</button></div></section>`;
+  const b=el.querySelector('#td-arch');if(b)b.onclick=()=>archBulkExcel().catch(e=>toast(e.message||'Ошибка','bad'));
+};
+HINTS.today=['Сегодня','Короткий список дел: загрузить выгрузки, ответить на спорные пары, завести договоры в 1С, дозагрузить в СХЭД. Показано только то, что действительно нужно сделать.','Договоры с отметкой «Готово» или «Не нужно» в счёт не идут.'];
+
+/* --- E. единый отчёт главбуху (Excel) --- */
+async function reportExcel(){
+  const ym=V.report.ym||today().slice(0,7);const two=(V.report.aud||'two')==='two';
+  let sh=null;
+  withFloor(()=>{
+    const R=reportModel(ym,two);const K=R.K;
+    const sum=[['Сверка договоров — '+MONTHS[R.M-1]+' '+R.Y],['ТЕХНОСТАЙЛ · '+(two?'Опись договоров и 1С':'все источники')+' · на '+fmtD(today())],...(DATEFLOOR?[['Период',floorNote()]]:[]),[],['Показатель','Значение','Изменение с '+(R.base?fmtD(R.base.d):'прошлого периода')],
+      ['Всего договоров в работе',K.total,''],['Сведено полностью',K.full,R.fullDelta==null?'—':(R.fullDelta>0?'+':'')+R.fullDelta],['Сведено, %',Math.round(R.pct)+'%',''],['Открытых вопросов',K.open,R.openDelta==null?'—':(R.openDelta>0?'+':'')+R.openDelta],['Закрыто в этом месяце',R.closed,''],['Просрочено',R.over,'']];
+    sh={'Сводка':{rows:sum,hdr:DATEFLOOR?5:4,widths:[36,16,26]}};
+    sh['Что осталось']={rows:[['Что осталось'],[],[],['Источник','Осталось','Было','Изменение','Комментарий'],...R.src.map(([l,v,b,s])=>[l,v==null?'—':v,b==null?'—':b,(v==null||b==null)?'—':v-b,s||''])],hdr:3,widths:[34,12,12,12,40],tab:XL_TAB.main};
+    if(R.top.length)sh['Менеджеры']={rows:[['Менеджеры с открытыми вопросами'],[],[],['Менеджер','Открыто','Закрыто','Всего','Просрочено','Самый давний, дн.'],...R.top.map(t=>[t.m,t.open,t.done,t.n,t.over,t.max||''])],hdr:3,widths:[28,10,10,10,12,16],tab:XL_TAB.warn,tone:(v,i,j)=>j===4&&v>0?'bad':null};
+    const D=R.c1d;
+    if(D.rows.length){
+      const head=['№','Менеджер','Год','Контрагент','№ договора','Дата','Что в 1С','Что не сходится','Что сделать','Дней висит'];
+      sh['Нет в 1С']={rows:[['Договоры, которых нет в 1С или данные не сходятся'],[],[],head,...D.rows.sort((a,b)=>a.m.localeCompare(b.m,'ru')||a.c.y-b.c.y).map((r,i)=>[i+1,mgrLabel(r.c)||r.m,r.c.y,r.c.cp,r.c.num||'',fmtD(r.c.date),(L1C[r.c.c1]||L1C.unk)[0],c1Diff(r.c).what,c1Todo(r.c),r.age||''])],hdr:3,widths:[5,22,7,38,20,12,26,46,46,11],tab:XL_TAB.bad,tone:(v,i,j)=>j===6&&v?(/Нет/.test(v)?'bad':'warn'):null};
+    }
+    const ch=[];
+    for(const k of Object.keys(CMP_NAMES)){let d=null;try{d=cmpDiff(k)}catch(e){}if(!d)continue;
+      for(const r of d.added)ch.push([CMP_NAMES[k],'Добавилось',r[1],r[0],fmtD(r[2]),'']);
+      for(const r of d.removed)ch.push([CMP_NAMES[k],'Пропало',r[1],r[0],fmtD(r[2]),'']);
+      for(const [r,t] of d.changed)ch.push([CMP_NAMES[k],'Изменилось',r[1],r[0],fmtD(r[2]),t])}
+    if(ch.length)sh['Что изменилось']={rows:[['Что изменилось с прошлой загрузки'],[],[],['Выгрузка','Что','Контрагент','№ договора','Дата','Подробности'],...ch],hdr:3,widths:[12,14,40,22,12,50],tab:XL_TAB.info,tone:(v,i,j)=>j===1?(v==='Добавилось'?'ok':v==='Пропало'?'bad':'warn'):null};
+  });
+  await exportXLSX('Отчёт_главбуху_'+ym+'_'+today()+'.xlsx',sh,{title:'Как читать — отчёт главбуху',readme:[['Что это','Одним файлом: сводка, что осталось, менеджеры, договоры которых нет в 1С, и что изменилось с прошлой загрузки.'],['Листы','Сводка · Что осталось · Менеджеры · Нет в 1С · Что изменилось.']]});
+  logAct('Единый отчёт главбуху (Excel)');toast('Файл сформирован');
+}
+{const _rep=V.report;V.report=function(el,sub){_rep(el,sub);try{const x=el.querySelector('#rp-xl');if(x&&!el.querySelector('#rp-all')){x.insertAdjacentHTML('afterend',`<button class="btn" id="rp-all" title="Сводка, менеджеры, нет в 1С, что изменилось — на отдельных листах">${ic('dl',16)} Единый отчёт (Excel)</button>`);el.querySelector('#rp-all').onclick=()=>reportExcel().catch(e=>toast(e.message||'Ошибка','bad'))}}catch(e){console.error(e)}}}
+
+/* --- F. проверка выгрузки при загрузке --- */
+function uploadCheck(k,out,map,fname,parts){
+  const R=[];const n=out.length;if(!n)return R;
+  const S=(typeof SRC!=='undefined'&&SRC[k])||{};
+  const ex=(arr,m=3)=>arr.slice(0,m).join('; ');
+  if(n<5)R.push({t:'bad',x:`В файле всего ${n} ${plural(n,'строка','строки','строк')}. Обычно в выгрузке их сотни — возможно, выбран не тот лист или файл обрезан.`});
+  const noCp=out.filter(r=>!String(r.cp||'').trim());
+  if(noCp.length>n*.4)R.push({t:'bad',x:`У ${noCp.length} из ${n} строк пустой контрагент. Проверьте, что колонка «Контрагент» выбрана верно.`});
+  else if(noCp.length>n*.1)R.push({t:'warn',x:`У ${noCp.length} из ${n} строк пустой контрагент — такие договоры не сверятся.`});
+  const numLike=out.filter(r=>/^[\d\s.,\-\/:]+$/.test(String(r.cp||'').trim())&&String(r.cp||'').trim());
+  if(numLike.length>n*.3)R.push({t:'bad',x:`В колонке «Контрагент» у ${numLike.length} строк стоят одни цифры или даты (например: ${ex(numLike.map(r=>r.cp),2)}). Похоже, выбрана не та колонка.`});
+  if(k==='opis'){
+    const noNum=out.filter(r=>!String(r.num||'').trim());
+    if(noNum.length>n*.1)R.push({t:noNum.length>n*.4?'bad':'warn',x:`У ${noNum.length} из ${n} договоров нет номера — их нельзя сверить с 1С.`});
+  }
+  if(k==='opis'||k==='c1'){
+    const noD=out.filter(r=>!r.date);
+    if(noD.length>n*.2)R.push({t:noD.length>n*.5?'bad':'warn',x:`У ${noD.length} из ${n} строк нет даты (или программа не смогла её прочитать). Проверьте колонку «Дата».`});
+    const ds=out.map(r=>r.date).filter(Boolean).sort();
+    if(ds.length){
+      const y0=new Date().getFullYear();
+      const odd=ds.filter(d=>+d.slice(0,4)<2000||+d.slice(0,4)>y0+1);
+      if(odd.length>Math.max(2,ds.length*.03))R.push({t:'warn',x:`У ${odd.length} строк странная дата (до 2000 года или в далёком будущем): ${ex(odd.map(fmtD),3)}. Возможно, в Excel дата записана текстом.`});
+      const last=ds[ds.length-1];const age=(Date.now()-new Date(last).getTime())/864e5;
+      if(age>400)R.push({t:'warn',x:`Самая свежая дата в файле — ${fmtD(last)}. Файл похож на старую выгрузку.`});
+    }
+  }
+  // дубли
+  const seen=new Map();let dup=0;
+  for(const r of out){if(r.generic||!String(r.num||'').trim())continue;const kk=nn(r.num)+'|'+cpk(r.cp)+'|'+(r.date||'');if(seen.has(kk))dup++;else seen.set(kk,1)}
+  if(dup>Math.max(3,n*.03))R.push({t:'warn',x:`В файле ${dup} повторяющихся строк (одинаковые номер, контрагент и дата). Возможно, выгрузка задвоилась.`});
+  // сравнение с тем, что было
+  const prevN=(ST.uploads[k]&&ST.uploads[k].n)||(k==='opis'?CON.filter(c=>c.k==='o').length:0);
+  if(prevN>20&&!parts){
+    if(n<prevN*.7)R.push({t:'warn',x:`Было ${num(prevN)} ${plural(prevN,'строка','строки','строк')}, в новом файле ${num(n)} (на ${Math.round((1-n/prevN)*100)}% меньше). Проверьте, что выгрузка полная.`});
+    else if(n>prevN*1.6)R.push({t:'info',x:`Было ${num(prevN)}, в новом файле ${num(n)} — намного больше. Если это ожидаемо (добавили новый период), всё в порядке.`});
+  }
+  // пересечение с Описью
+  if(k!=='opis'&&k!=='mgr1c'){
+    const os=new Set(CON.filter(c=>c.k==='o'&&c.num).map(c=>nn(c.num)));
+    const cand=out.filter(r=>!r.generic&&String(r.num||'').trim());
+    if(os.size>20&&cand.length>=10){
+      const hit=cand.filter(r=>os.has(nn(r.num))).length;
+      if(hit<cand.length*.1)R.push({t:'warn',x:`Только ${hit} из ${cand.length} номеров договоров из этого файла есть в Описи. Возможно, это не та выгрузка или другой период/организация.`});
+    }
+  }
+  if(k==='c1'&&map&&map.mgr==null)R.push({t:'info',x:'В файле нет колонки «Менеджер» — менеджеры по 1С сверяться не будут. Если менеджеры нужны, выгрузите 1С с этой колонкой.'});
+  return R;
+}
+function uploadCheckModal(k,fname,L,go,cancel){
+  document.body.classList.remove('quiet');
+  const bad=L.some(x=>x.t==='bad'),warn=L.some(x=>x.t==='warn');
+  if(!bad&&!warn){go();return}
+  const ic2={bad:'🔴',warn:'🟡',info:'🔵'};
+  openModal(`<h3>${bad?'В файле есть проблемы':'Проверьте файл перед загрузкой'}</h3><p class="muted sm">Файл «${esc(fname)}». Программа проверила его до загрузки${bad?' и нашла то, что, скорее всего, испортит сверку':''}.</p>
+  <ul class="ul" style="list-style:none;padding:0">${L.map(x=>`<li style="margin:8px 0"><span>${ic2[x.t]}</span> ${esc(x.x)}</li>`).join('')}</ul>
+  <div class="row end"><button class="btn" id="uc-c">Отмена — проверю файл</button><button class="btn ${bad?'':'pri'}" id="uc-ok">${bad?'Всё равно загрузить':'Загрузить'}</button></div>`,m=>{
+    m.querySelector('#uc-c').onclick=()=>{closeModal();if(cancel)cancel()};
+    m.querySelector('#uc-ok').onclick=go;
+  });
+}
+
+/* --- G. автоматические копии и восстановление --- */
+async function bkList(){return (await IDB.get('backups'))||[]}
+async function bkMake(label){
+  if(VIEW||!ST)return false;
+  const L=await bkList();
+  L.unshift({at:Date.now(),label:label||'вручную',marks:Object.keys(ST.marks||{}).length,ups:Object.keys(ST.uploads||{}).length,st:ST});
+  const ok=await IDB.set('backups',L.slice(0,5));
+  if(ok)LS.set('sxed_lastbk',Date.now());
+  return ok;
+}
+async function bkRestore(i){
+  const L=await bkList();const b=L[i];if(!b)return;
+  if(!await confirmBox('Вернуть состояние от '+new Date(b.at).toLocaleString('ru-RU')+'? Текущие отметки и загрузки будут заменены. Перед этим программа сама сохранит копию текущего состояния.','Вернуть'))return;
+  await bkMake('перед восстановлением');
+  ST={...blankState(),...b.st};ST.updated=nowTs();
+  await IDB.set('state',ST);buildAll();computeKpi();toast('Состояние восстановлено','ok');
+  if(VIEWEL)route();
+}
+function bkDownload(i){bkList().then(L=>{const b=L[i];if(b)download('СХЭД_копия_'+new Date(b.at).toISOString().slice(0,10)+'.json',new Blob([JSON.stringify(b.st)],{type:'application/json'}))})}
+async function bkMount(el){
+  const anchor=el.querySelector('#bk-x');if(!anchor)return;
+  const card=anchor.closest('section,.card');if(!card||el.querySelector('#bk-auto'))return;
+  card.insertAdjacentHTML('afterend',`<section class="card" id="bk-auto"><h3>${ic('shield',20)||''} Автоматические копии</h3><p class="muted sm">Раз в неделю программа сама сохраняет копию на этом компьютере (последние 5). Если что-то пошло не так — отметки пропали или загрузился не тот файл — вернитесь к нужной копии.</p><div class="row" style="margin-bottom:8px"><button class="btn" id="bk-now">Сделать копию сейчас</button></div><div id="bk-l"></div></section>`);
+  const draw=async()=>{
+    const L=await bkList();
+    el.querySelector('#bk-l').innerHTML=L.length?`<div class="tscroll"><table class="tbl sm"><thead><tr><th>Когда</th><th>Как</th><th>Отметок</th><th>Загрузок</th><th></th></tr></thead><tbody>${L.map((b,i)=>`<tr><td>${new Date(b.at).toLocaleString('ru-RU')}</td><td>${esc(b.label)}</td><td>${b.marks}</td><td>${b.ups}</td><td style="white-space:nowrap"><button class="btn sm" data-r="${i}">Вернуть</button> <button class="btn sm" data-d="${i}">Скачать</button></td></tr>`).join('')}</tbody></table></div>`:'<p class="muted sm">Копий пока нет.</p>';
+    el.querySelectorAll('#bk-l [data-r]').forEach(b=>b.onclick=()=>bkRestore(+b.dataset.r));
+    el.querySelectorAll('#bk-l [data-d]').forEach(b=>b.onclick=()=>bkDownload(+b.dataset.d));
+  };
+  el.querySelector('#bk-now').onclick=async()=>{const ok=await bkMake('вручную');toast(ok?'Копия сохранена':'Не удалось сохранить копию',ok?'ok':'bad');draw()};
+  draw();
+}
+{const _vs=V.settings;V.settings=function(el,sub){_vs(el,sub);bkMount(el).catch(e=>console.error(e))}}
+function bkTick(){
+  try{
+    if(VIEW||!VIEWEL||!ST)return;
+    const last=LS.get('sxed_lastbk',0);
+    if(Date.now()-last>6*864e5&&(Object.keys(ST.marks||{}).length||Object.keys(ST.uploads||{}).length))bkMake('автоматическая, раз в неделю');
+  }catch(e){}
+}
+setTimeout(bkTick,25000);setInterval(bkTick,10*60*1000);
 
 window.addEventListener('DOMContentLoaded',boot);
 
