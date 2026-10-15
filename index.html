@@ -532,7 +532,11 @@ function buildAll(){
 let FORCE2=false;   // временно: считать только Опись и 1С (для отчётов не для себя)
 const HIDE=()=>FORCE2||!!(VIEW&&DATA.hideOther);
 function withTwo(fn){const pf=FORCE2,pk=KPI;FORCE2=true;try{computeKpi();return fn()}finally{FORCE2=pf;KPI=pk}}   // другим (менеджерам, главбуху) СХЭД, СБИС и архивы не показываем
-function inScope(c){return c.k==='o'&&c.y!=null&&c.y>=(ST.settings.from||2022)}
+let DATEFLOOR='';
+const mgFloor=()=>ST.settings.mgFrom===undefined?'2024-11-27':(ST.settings.mgFrom||'');
+function withFloor(fn){const f=mgFloor();if(!f)return fn();const old=DATEFLOOR;DATEFLOOR=f;let r;try{r=fn()}catch(e){DATEFLOOR=old;throw e}if(r&&typeof r.finally==='function')return r.finally(()=>{DATEFLOOR=old});DATEFLOOR=old;return r}
+const floorNote=()=>DATEFLOOR?'Только договоры от '+fmtD(DATEFLOOR)+' и позже (по дате договора в Описи). Договоры без даты в Описи включены.':'';
+function inScope(c){return c.k==='o'&&c.y!=null&&c.y>=(ST.settings.from||2022)&&(!DATEFLOOR||!c.date||c.date>=DATEFLOOR)}
 function gapsOf(c){
   const g=[];if(!inScope(c))return g;
   const t1=L1C[c.c1]||L1C.unk;if(t1[1]==='bad')g.push({s:'c1',tone:'bad',t:t1[0]});else if(t1[1]==='warn')g.push({s:'c1',tone:'warn',t:t1[0]});
@@ -605,7 +609,7 @@ function applyMgr1c(opisC,recs){
   const bad=m=>!m||/^администратор/i.test(m.trim())||BADMGR.test(String(m).trim());
   const res=matchSource(sc,recs);
   const PAREN=['собода'];
-  const G={total:sc.length,found:0,filled:[],diff:[],none:[],same:0,note:[]};
+  const G={total:sc.length,found:0,filled:[],diff:[],none:[],same:0,note:[],sameL:[],scL:sc};
   for(const c of sc){
     c.mgrOpis=c.mgr||'';
     const x=res.get(c.key);
@@ -617,10 +621,10 @@ function applyMgr1c(opisC,recs){
     const act=pool.filter(r=>!/закр/i.test(r.state||''));const use=act.length?act:pool;
     const t={};for(const r of use){const m=canon(r.mgr);t[m]=(t[m]||0)+1}
     const ent=Object.entries(t).sort((a,b)=>b[1]-a[1]);const real=ent.filter(e=>!PAREN.includes(e[0].toLowerCase()));
-    if(!real.length){const nt=ent[0][0];c.mgrNote=nt;c.mgr1c=nt;G.note.push(c);if(c.mgr&&std.has(c.mgr))G.same++;continue}
+    if(!real.length){const nt=ent[0][0];c.mgrNote=nt;c.mgr1c=nt;G.note.push(c);if(c.mgr&&std.has(c.mgr)){G.same++;G.sameL.push(c)}continue}
     const m1=real[0][0];if(ent.length>real.length)c.mgrNote=ent.find(e=>PAREN.includes(e[0].toLowerCase()))[0];
     if(!c.mgr||!std.has(c.mgr)){c.mgr=m1;c.mgrSrc='1С';c.mgr1c=m1;G.filled.push(c)}
-    else if(first(c.mgr)===first(m1)||c.mgr.toLowerCase().includes(first(m1)))G.same++;
+    else if(first(c.mgr)===first(m1)||c.mgr.toLowerCase().includes(first(m1))){G.same++;G.sameL.push(c)}
     else{c.mgrDiff=m1;G.diff.push(c)}
   }
   MG1C=G;
@@ -1493,6 +1497,7 @@ function xlSheetXml(rows,o){
 /* sheets: {имя: aoa | {rows,hdr,...}} → Uint8Array (.xlsx) */
 async function xlsxBuild(sheets,opts){
   opts=opts||{};
+  if(DATEFLOOR&&opts.readme)opts={...opts,readme:[...opts.readme,['Период',floorNote()]]};
   const list=[];const used=new Set();
   const nm=n=>{let b=String(n).replace(/[\\\/\?\*\[\]:]/g,'').trim().slice(0,31)||'Лист',k=b,i=2;while(used.has(k.toLowerCase()))k=b.slice(0,28)+' '+(i++);used.add(k.toLowerCase());return k};
   if(opts.readme&&opts.readme.length){
@@ -4055,7 +4060,7 @@ V.report=function(el,sub){
   <div class="rpwrap"><div id="rp-node">${reportHTML(R)}</div></div>`;
   $$('#rp-aud button',el).forEach(b=>b.onclick=()=>{V.report.aud=b.dataset.a;V.report(el,ym)});
   $('#rp-m',el).onchange=e=>{if(e.target.value)GOTO('#report/'+e.target.value);if(location.hash==='#report/'+e.target.value)V.report(el,e.target.value)};
-  $('#rp-xl',el).onclick=()=>c1Excel();
+  $('#rp-xl',el).onclick=()=>withFloor(()=>c1Excel());
   $('#rp-pdf',el).onclick=async()=>{const b=$('#rp-pdf',el);b.disabled=true;toast('Готовлю PDF…','info',1500);try{await nodeToPdf($('#rp-node .rp',el),`Отчёт_${R.two?'Опись_1С':'СХЭД'}_${R.ym}.pdf`);toast('PDF скачан')}catch(e){console.error(e);toast(e.message||'Не удалось сформировать PDF. Нажмите «Печать» и выберите «Сохранить как PDF».','bad',8000)}b.disabled=false};
   $('#rp-print',el).onclick=()=>{const w=window.open('','_blank');if(!w){toast('Разрешите всплывающие окна','bad');return}w.document.write(`<!doctype html><meta charset="utf-8"><title>Отчёт ${R.ym}</title><body style="margin:0">${reportHTML(R)}<script>setTimeout(()=>print(),400)<\/script>`);w.document.close()};
 };
@@ -4514,18 +4519,20 @@ function expSrcTable(need){
 const expAs=(a,fn)=>{const R=MRO(),old=R.aud;R.aud=a;let r;try{r=fn()}catch(e){R.aud=old;throw e}return r&&r.finally?r.finally(()=>{R.aud=old}):(R.aud=old,r)};
 /* показать паспорт и скачать */
 function expGo(spec){
-  const n=spec.count?spec.count():null;
+  const FL=(spec.g==='mgr'||spec.g==='boss')&&spec.id!=='pdf'&&!!mgFloor();
+  const n=spec.count?(FL?withFloor(()=>spec.count()):spec.count()):null;
   const warns=(spec.need||[]).map(k=>[k,expSrcState(k)]).filter(([k,s])=>s.st==='warn');
   const empty=n===0;
   const verdict=empty?`<div class="callout ok"><b>Здесь пусто — задолженности нет</b><p>По этому файлу ничего не найдено, скачивать нечего.</p></div>`:warns.length?`<div class="callout warn"><b>Сначала проверьте</b><p>${warns.map(([k,s])=>esc(EXP_SRC.find(x=>x[0]===k)[1])+': '+s.note).join('<br>')}</p><p class="sm muted">Файл всё равно можно скачать, но цифры в нём могут быть неактуальными.</p></div>`:`<div class="callout ok"><b>Можно отправлять</b><p>${(spec.need||[]).some(k=>k!=='sbis'&&!ST.uploads[k])?'Часть данных взята из самого приложения (на '+esc(String(DATA.built||'').slice(0,10))+'). Если с тех пор в 1С или СХЭД что-то менялось, сначала загрузите свежие выгрузки на странице «Старт».':'Данные свежие, все нужные источники загружены.'}</p></div>`;
   openModal(`<h3>Паспорт файла</h3>
   <p><b>${esc(spec.title)}</b></p><p class="muted">${esc(spec.desc)}</p>
   ${n!=null?`<p>В файле: <b>${esc(spec.countText?spec.countText(n):num(n))}</b></p>`:''}
+  ${FL?`<p class="sm"><b>Период:</b> договоры от ${fmtD(mgFloor())} и позже. <span class="muted">Изменить дату можно на этой странице вверху.</span></p>`:''}
   <h4 style="margin:12px 0 4px">Из каких данных собран</h4>${expSrcTable(spec.need)}
   ${spec.note?`<p class="muted sm" style="margin-top:8px">${esc(spec.note)}</p>`:''}
   <div style="margin-top:12px">${verdict}</div>
   <div class="row end" style="margin-top:12px"><button class="btn" onclick="closeModal()">Отмена</button>${empty?'':`<button class="btn pri" id="ex-go">${ic('dl',15)} Скачать</button>`}</div>`,m=>{
-    const b=m.querySelector('#ex-go');if(b)b.onclick=()=>{closeModal();Promise.resolve().then(()=>spec.run()).catch(e=>{console.error(e);toast(e.message||'Не удалось сформировать файл','bad',6000)})};
+    const b=m.querySelector('#ex-go');if(b)b.onclick=()=>{closeModal();Promise.resolve().then(()=>FL?withFloor(()=>spec.run()):spec.run()).catch(e=>{console.error(e);toast(e.message||'Не удалось сформировать файл','bad',6000)})};
   });
 }
 /* Excel: что загрузить в СХЭД (для себя) */
@@ -4569,7 +4576,7 @@ async function allExcel(mode){
 }
 
 /* Excel: менеджеры в Описи и в 1С — что расходится */
-const mgcRows=()=>{const G=MG1C;if(!G)return null;const fx=c=>c.mgrFix!==undefined;return{G,diff:G.diff.filter(c=>!fx(c)),filled:G.filled,none:G.none.filter(c=>!fx(c)),note:G.note,fixed:G.diff.filter(fx).length}};
+const mgcRows=()=>{const G0=MG1C;if(!G0)return null;const fx=c=>c.mgrFix!==undefined;const fl=c=>!DATEFLOOR||!c.date||c.date>=DATEFLOOR;const G=DATEFLOOR?{...G0,total:(G0.scL||[]).filter(fl).length,same:(G0.sameL||[]).filter(fl).length}:G0;return{G,diff:G0.diff.filter(c=>!fx(c)&&fl(c)),filled:G0.filled.filter(fl),none:G0.none.filter(c=>!fx(c)&&fl(c)),note:G0.note.filter(fl),fixed:G0.diff.filter(c=>fx(c)&&fl(c)).length}};
 async function mgCmpExcel(){
   const R=mgcRows();if(!R){toast('Сначала загрузите выгрузку 1С на странице «Старт»','warn');return}
   const {G}=R;
@@ -4621,10 +4628,14 @@ V.exports=function(el,sub){
   el.innerHTML=`<div class="pghead"><div><h1>Выгрузки</h1><p class="muted">Все файлы Excel в одном месте. Нажмите «Скачать» — приложение покажет «паспорт файла»: из каких данных он собран и можно ли его отправлять.</p></div></div>
   <section class="card"><h3>Данные, из которых собираются файлы</h3>${expSrcTable()}
     <div class="callout ${warns?'warn':'ok'}" style="margin-top:10px"><b>${warns?'Есть что проверить перед отправкой':need.every(k=>ST.uploads[k])?'Данные свежие':'Данные взяты из приложения'}</b><p>${warns?'Загрузите свежие выгрузки на странице «Старт» — тогда файлы будут актуальными.':need.every(k=>ST.uploads[k])?'Можно скачивать и отправлять.':'Можно скачивать. Если с даты выше в 1С или СХЭД что-то менялось, сначала загрузите свежие выгрузки на странице «Старт».'}</p>${warns?`<div class="row"><button class="btn sm" data-go="#overview">Открыть «Старт»</button></div>`:''}</div></section>
+  <section class="card" id="exp-date"><h3>Период для менеджеров и главбуха</h3><p class="muted sm">Файлы для менеджеров и главбуха (задолженность, «Нет в 1С», «Все договоры», общий отчёт) собираются только по договорам с этой даты. Дата договора берётся из Описи. Договоры без даты в Описи в файлы попадают.</p><div class="row" style="gap:12px;align-items:center;flex-wrap:wrap"><label class="sm">Договоры от <input type="date" id="mf" class="inp" style="max-width:190px" value="${esc(mgFloor())}"></label><button class="btn sm" id="mf-off">Без ограничения</button><button class="btn sm" id="mf-def">27.11.2024</button></div><p class="sm" id="mf-n" style="margin:8px 0 0"></p></section>
   <section class="card" id="exp-chk"><h3>Проверить файл менеджера по 1С</h3><p class="muted sm">Менеджер внёс договоры в 1С и вернул файл — бросьте его сюда. Приложение сравнит договоры из файла с последней выгрузкой 1С и покажет, что внесено, а чего всё ещё нет. Подойдёт и файл, скачанный из «Выгрузок», и любой Excel с колонками «Контрагент», «№ договора», «Дата».</p><div id="chk-dz"></div></section>
   ${['mgr','boss','me'].map(g=>`<section class="card" id="exp-${g}"><h3>${EXP_G[g][0]}</h3><p class="muted sm">${EXP_G[g][1]}</p>
     <div class="explist">${items.filter(i=>i.g===g).map(i=>`<div class="exrow"><div class="exi"><b>${esc(i.title)}</b><p class="muted sm">${esc(i.desc)}</p>${i.sel?`<select id="exp-m" class="inp" style="max-width:260px"><option value="">— выберите менеджера —</option>${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select>`:''}</div><button class="btn pri" data-ex="${i.id}">${i.open?'Открыть':ic('dl',15)+' Скачать'}</button></div>`).join('')}</div></section>`).join('')}`;
   $$('button[data-ex]',el).forEach(b=>b.onclick=()=>{const i=items.find(x=>x.id===b.dataset.ex);if(i.open){GOTO(i.open);return}if(i.sel&&!document.getElementById('exp-m').value){toast('Сначала выберите менеджера','warn');return}expGo(i)});
+  const mfN=()=>{const f=mgFloor();const all=CON.filter(inScope).length;const n=f?withFloor(()=>CON.filter(inScope).length):all;$('#mf-n',el).innerHTML=f?`В файлы попадёт <b>${num(n)}</b> из ${num(all)} договоров (от ${fmtD(f)} и позже).`:`Ограничения по дате нет: в файлы попадут все ${num(all)} договоров.`};
+  const mfSet=v=>{ST.settings={...ST.settings,mgFrom:v};touch();$('#mf',el).value=v;mfN();toast(v?'Период: договоры от '+fmtD(v):'Ограничение по дате снято','info',2200)};
+  $('#mf',el).onchange=e=>mfSet(e.target.value||'');$('#mf-off',el).onclick=()=>mfSet('');$('#mf-def',el).onclick=()=>mfSet('2024-11-27');mfN();
   $('#chk-dz',el).appendChild(dropzone('Перетащите сюда Excel-файл менеджера','.xlsx,.xls',chkFile));
   if(sub){const t=document.getElementById('exp-'+sub);if(t)setTimeout(()=>t.scrollIntoView({behavior:'smooth',block:'start'}),60)}
 };
@@ -4944,15 +4955,15 @@ async function cmpDiffExcel(k){
 /* --- пакет «сделать всё сразу» --- */
 function packPlan(){
   const P=[
-    {g:'1_Главбуху',t:'Нет в 1С: что догрузить',run:()=>c1Excel(),ok:()=>c1Debt().rows.length>0},
-    {g:'2_Менеджерам',t:'Задолженность каждого менеджера (внутри ZIP — по файлу на менеджера)',run:()=>expAs('mgr',()=>debtAll()),ok:()=>expDebtCount().r>0},
-    {g:'2_Менеджерам',t:'Все договоры (Опись и 1С)',run:()=>allExcel('mgr'),ok:()=>true},
+    {g:'1_Главбуху',fl:1,t:'Нет в 1С: что догрузить',run:()=>c1Excel(),ok:()=>c1Debt().rows.length>0},
+    {g:'2_Менеджерам',fl:1,t:'Задолженность каждого менеджера (внутри ZIP — по файлу на менеджера)',run:()=>expAs('mgr',()=>debtAll()),ok:()=>expDebtCount().r>0},
+    {g:'2_Менеджерам',fl:1,t:'Все договоры (Опись и 1С)',run:()=>allExcel('mgr'),ok:()=>true},
     {g:'3_Для_себя',t:'Что загрузить в СХЭД',run:()=>sxdExcel(),ok:()=>CON.filter(c=>inScope(c)&&(c.sx==='no'||c.sx==='arch')).length>0},
     {g:'3_Для_себя',t:'Менеджеры: Опись и 1С — что расходится',run:()=>mgCmpExcel(),ok:()=>!!mgcRows()},
     {g:'3_Для_себя',t:'Менеджеры: подозрительные значения в Описи',run:()=>mgSusExcel(),ok:()=>mgSus().length>0},
     {g:'3_Для_себя',t:'Все договоры — все источники',run:()=>allExcel('all'),ok:()=>true}
   ];
-  return P.map(p=>{let ok=false;try{ok=p.ok()}catch(e){}return{...p,use:ok}});
+  return P.map(p=>{let ok=false;try{ok=p.fl?withFloor(()=>p.ok()):p.ok()}catch(e){}return{...p,use:ok}});
 }
 function packModal(){
   const plan=packPlan();const L=remList();
@@ -4969,12 +4980,12 @@ async function packBuild(){
   const chunks=[];const z=new ZipOut({write:async u=>{chunks.push(u)},close:async()=>{}});
   const notes=[];
   try{
-    exportXLSX=(name,sheets,opts)=>{caught.push({name,sheets,opts});return Promise.resolve()};
+    exportXLSX=(name,sheets,opts)=>{caught.push({name,sheets,opts:(DATEFLOOR&&opts&&opts.readme)?{...opts,readme:[...opts.readme,['Период',floorNote()]]}:opts});return Promise.resolve()};
     download=(name,blob)=>{caught.push({name,blob})};
     toast=()=>{};
     for(const p of plan){
       const before=caught.length;
-      try{await p.run()}catch(e){notes.push('Не удалось собрать: '+p.t+' ('+(e.message||e)+')');continue}
+      try{await (p.fl?withFloor(()=>p.run()):p.run())}catch(e){notes.push('Не удалось собрать: '+p.t+' ('+(e.message||e)+')');continue}
       const got=caught.slice(before);
       if(!got.length){notes.push('Пропущено (пусто): '+p.t);continue}
       for(const g of got){
@@ -4986,6 +4997,7 @@ async function packBuild(){
   const L=remList();
   const rd=['ПАКЕТ СВЕРКИ — '+fmtD(today()),'СХЭД · Учёт, ТЕХНОСТАЙЛ','',
     'Папки:','  1_Главбуху — что нужно догрузить в 1С.','  2_Менеджерам — файлы для отправки менеджерам (только Опись и 1С).','  3_Для_себя — ваши рабочие списки (есть СХЭД и архивы, менеджерам не отправлять).','',
+    ...(mgFloor()?['Период для файлов главбуху и менеджерам: договоры от '+fmtD(mgFloor())+' и позже.','']:[]),
     'Данные, по которым собран пакет:',...['opis','c1','sxed'].map(k=>'  '+({opis:'Опись',c1:'1С',sxed:'СХЭД'})[k]+': '+String(expSrcState(k).note).replace(/<[^>]+>/g,'').replace(/&[a-z]+;/g,' ')),'',
     L.length?'ВНИМАНИЕ: '+L.map(x=>x.l+' — '+x.t).join('; ')+'. Перед отправкой лучше загрузить свежие выгрузки.':'Данные свежие — можно отправлять.',
     ...(notes.length?['','Заметки:',...notes.map(n=>'  '+n)]:[])].join('\r\n');
