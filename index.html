@@ -386,7 +386,7 @@ const SYNC={
     try{
       for(let i=0;i<3;i++){
         const remote=await this.pull();
-        if(remote){ST=mergeState(ST,remote);IDB.set('state',ST);}
+        if(remote){const sg0=stateSig();ST=mergeState(ST,remote);IDB.set('state',ST);if(stateSig()!==sg0)SYNC.dirty=true}
         const r=await this.push();
         if(r!=='conflict')break;
       }
@@ -397,6 +397,7 @@ const SYNC={
   },
   setStatus(s){this.status=s;const e=$('#syncchip');if(e){e.dataset.s=s;e.querySelector('.t').textContent=({off:'Не подключено',sync:'Синхронизация…',ok:'Синхронизировано',err:'Ошибка синхронизации'})[s]}}
 };
+const stateSig=()=>Object.keys(ST.uploads||{}).sort().map(k=>k+':'+((ST.uploads[k]||{}).ts||0)).join(',')+'|'+Object.keys(ST.cpalias||{}).length+'|'+JSON.stringify(ST.settings||{});
 const syncSoon=debounce(()=>{if(SYNC.cfg())SYNC.sync(false)},20000);
 
 let KEY=null,SALT=null,ITER=200000,DATA=null;
@@ -4455,7 +4456,7 @@ function updBadges(){
   }catch(e){}
 }
 window.addEventListener('hashchange',route);
-function onStateMerged(){computeKpi();if(VIEWEL&&V.cur&&!['tracker'].includes(V.cur)||true){const a=document.activeElement;if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName))route()}}
+function onStateMerged(){if(SYNC.dirty){SYNC.dirty=false;try{buildAll()}catch(e){console.error(e)}}computeKpi();if(VIEWEL&&V.cur&&!['tracker'].includes(V.cur)||true){const a=document.activeElement;if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName))route()}}
 function globalSearch(){
   openModal(`<div class="gsb">${ic('search',18)}<input id="gq" placeholder="Контрагент, номер договора, ИНН, файл…" autofocus></div><div id="gr" class="gres"><p class="muted sm">Начните вводить — найду договоры, документы и задачи трекера.</p></div>`,m=>{
     const inp=m.querySelector('#gq');const out=m.querySelector('#gr');
@@ -4820,7 +4821,8 @@ function weekBlock(){
   <div class="kpi bad"><span class="kl">Нет в 1С</span><span class="kv">${num(K.c1bad)}</span><span class="ks">${dl(K.c1bad,b.c1,false)}</span></div>
   ${HIDE()?'':`<div class="kpi warn"><span class="kl">Нет в СХЭД и в архивах</span><span class="kv">${num(K.sxbad)}</span><span class="ks">${dl(K.sxbad,b.sx,false)}</span></div>`}</div>
   <p class="sm" style="margin:8px 0">За это время: <b>${closed}</b> ${plural(closed,'вопрос закрыт','вопроса закрыто','вопросов закрыто')}, <b>${fresh}</b> ${plural(fresh,'новый появился','новых появилось','новых появилось')}, отмечено вами «Готово» / «Не нужно»: <b>${marked}</b>.</p>
-  ${better.length||worse.length?`<div class="row" style="gap:18px;flex-wrap:wrap">${line(better,'Стало лучше у менеджеров')}${line(worse,'Стало хуже у менеджеров')}</div>`:''}</section>`;
+  ${better.length||worse.length?`<div class="row" style="gap:18px;flex-wrap:wrap">${line(better,'Стало лучше у менеджеров')}${line(worse,'Стало хуже у менеджеров')}</div>`:''}
+  <p class="muted sm" style="margin:8px 0 0">Данные на этом устройстве: ${[['opis','Опись'],['c1','1С'],['sxed','СХЭД']].map(([k,l])=>{const u=ST.uploads[k];return l+' — '+(u?'загружена '+new Date(u.ts).toLocaleDateString('ru-RU'):'из поставки')}).join(' · ')}. ${SYNC.cfg()?'Синхронизация: '+({ok:'работает',sync:'идёт…',err:'<b>ошибка — данные могут отличаться от других устройств</b>',off:'ещё не запускалась'})[SYNC.status]+(SYNC.lastOk?' (последняя '+new Date(SYNC.lastOk).toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})+')':'')+'.':'Синхронизация не подключена.'}</p></section>`;
 }
 
 /* ===== Напоминание о невыгруженных данных ===== */
