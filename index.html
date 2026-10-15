@@ -523,7 +523,9 @@ function buildAll(){
   if(dsx||uo){const r=matchSource(opisC,SXREC);for(const c of opisC){if(c.y!=null&&c.y<2022)continue;const x=r.get(c.key);c.msx=['ok','closed','dup','datediff','cpdate'].includes(x.code)?x.m:[];const archFound=(c.docs&&c.docs.length)||(archIdx.get(nn(c.num))||[]).length;c.sx=x.code==='ok'||x.code==='closed'||x.code==='dup'||x.code==='datediff'?'ok':(archFound?'arch':'no')}}
   if(uo)for(const c of opisC){const k=nn(c.num);c.docs=(archIdx.get(k)||[]).filter(i=>{const d=DOCS[i];return cpmatchK(cpk(d[2]),cpk(c.cp))||(c.date&&d[4]===c.date)})}
   MG1C=null;for(const c of opisC)c.mgrOpis=c.mgr||'';
-  if(ST.uploads.mgr1c)applyMgr1c(opisC,ST.uploads.mgr1c.rows);
+  {let mrows=ST.uploads.mgr1c?ST.uploads.mgr1c.rows:null;
+   if(!mrows&&ST.uploads.c1&&C1.some(r=>r.mgr)){const from=ST.settings.from||2022;mrows=C1.filter(r=>(!r.org||/техностайл/i.test(r.org))&&(!r.date||+String(r.date).slice(0,4)>=from)).map((r,i)=>({i,num:r.num,name:r.name,cp:r.cp,inn:r.inn,date:r.date,state:r.state,generic:r.generic,mgr:r.mgr}))}
+   if(mrows)applyMgr1c(opisC,mrows)}
   applyMgrFix(opisC);
   computeKpi();
 }
@@ -4598,7 +4600,7 @@ function expItems(){
   return[
     {g:'mgr',id:'zip',title:'Задолженность каждого менеджера — ZIP с файлами',desc:'Отдельный файл на каждого менеджера: что ему догрузить в 1С, что проверить, что уточнить. Плюс сводка по всем и файл «Без менеджера» для руководителей.',need:['opis','c1'],count:()=>expDebtCount().r,countText:n=>{const x=expDebtCount();return x.r+' '+plural(x.r,'договор','договора','договоров')+' у '+x.m+' '+plural(x.m,'менеджера','менеджеров','менеджеров')+' (+ '+x.n0+' без менеджера)'},run:()=>expAs('mgr',()=>debtAll()),note:'Только Опись и 1С. СХЭД, СБИС и архивы в эти файлы не попадают.'},
     {g:'mgr',id:'one',title:'Задолженность одного менеджера',desc:'Файл по договорам выбранного менеджера: что догрузить в 1С, что проверить, как записано в Описи и в 1С.',sel:true,need:['opis','c1'],count:()=>{const m=mgrSel();return m?expAs('mgr',()=>debtModel(m,expMgrOpts()).rows.length):null},countText:n=>n+' '+plural(n,'договор','договора','договоров'),run:()=>{const m=mgrSel();if(!m){toast('Выберите менеджера','warn');return}return expAs('mgr',()=>debtOne(m))},note:'Только Опись и 1С.'},
-    {g:'mgr',id:'mgc',title:'Менеджеры: Опись и 1С — что расходится',desc:'Сравнение колонки «Менеджер» в Описи с менеджерами из 1С: где совпало, где расходится, где менеджер взят из 1С, где не определён.',need:['opis','c1'],count:()=>{const R=mgcRows();return R?R.diff.length+R.filled.length+R.none.length:null},countText:n=>n+' '+plural(n,'договор','договора','договоров')+' для проверки',run:()=>mgCmpExcel(),note:'Работает, когда загружена выгрузка 1С с менеджерами.'},
+    {g:'mgr',id:'mgc',title:'Менеджеры: Опись и 1С — что расходится',desc:'Сравнение колонки «Менеджер» в Описи с менеджерами из 1С: где совпало, где расходится, где менеджер взят из 1С, где не определён.',need:['opis','c1'],count:()=>{const R=mgcRows();return R?R.diff.length+R.filled.length+R.none.length:null},countText:n=>n+' '+plural(n,'договор','договора','договоров')+' для проверки',run:()=>mgCmpExcel(),note:'Работает, когда загружена выгрузка 1С, в которой есть колонка «Менеджер».'},
     {g:'mgr',id:'none',title:'Договоры без менеджера — для руководителей',desc:'Договоры, у которых менеджер не указан ни в Описи, ни в 1С. В файле есть колонка «Возможный менеджер» (предположение приложения).',need:['opis','c1'],count:()=>expAs('mgr',()=>debtModel('Не указан',expMgrOpts()).rows.length),countText:n=>n+' '+plural(n,'договор','договора','договоров'),run:()=>expAs('mgr',()=>debtOne('Не указан')),note:'Чтобы список стал короче, подтвердите предположения: «Менеджеры → Что проверить».'},
     {g:'mgr',id:'c1',title:'Нет в 1С: что догрузить — по менеджерам',desc:'Сводка по менеджерам и два списка: «Догрузить в 1С» (договора в 1С нет) и «Проверить в 1С» (данные не совпали).',need:['opis','c1'],count:()=>c1Debt().rows.length,countText:n=>n+' '+plural(n,'договор','договора','договоров'),run:()=>c1Excel(),note:'Число в «Догрузить в 1С» совпадает с фильтром «Нет в 1С» на странице «Договоры».'},
     {g:'mgr',id:'rep',title:'Общий отчёт по менеджерам',desc:'Один файл: сводка, общий список и отдельный лист на каждого менеджера.',need:['opis','c1'],count:()=>expAs('mgr',()=>mrRows(expMgrOpts()).length),countText:n=>n+' '+plural(n,'договор','договора','договоров')+' с недостатками',run:()=>mrReport(expMgrOpts()),note:'Только Опись и 1С.'},
@@ -4631,7 +4633,7 @@ V.exports=function(el,sub){
 function whyNoMgr(c){
   if(c.mgrBad)return 'В Описи в ячейке менеджера стоит дата, а не фамилия.';
   if(c.mgrOpis&&c.mgr===c.mgrOpis)return 'В Описи указано «'+c.mgrOpis+'» — такого менеджера в списке нет.';
-  if(!MG1C)return 'В Описи менеджер не указан. Выгрузка 1С с менеджерами не загружена — проверить по 1С нельзя.';
+  if(!MG1C)return 'В Описи менеджер не указан. В выгрузке 1С нет колонки «Менеджер» (или выгрузка не загружена) — проверить по 1С нельзя.';
   if(c.mgrNote)return 'В Описи менеджер не указан; в 1С записано только «'+c.mgrNote+'» в скобках.';
   if(c.mgrWhy)return 'В Описи менеджер не указан; '+c.mgrWhy+'.';
   return 'В Описи менеджер не указан и в 1С по этому договору менеджера тоже нет.';
@@ -4789,7 +4791,7 @@ function weekBlock(){
 /* ===== Напоминание о невыгруженных данных ===== */
 let REM_HIDE=false;
 function remList(){
-  const SRC=[['opis','Опись договоров'],['c1','Выгрузка 1С (договоры)'],['mgr1c','Выгрузка 1С с менеджерами'],['sxed','Страница СХЭД']];
+  const SRC=[['opis','Опись договоров'],['c1','Выгрузка 1С (договоры и менеджеры)'],['sxed','Страница СХЭД']];
   const out=[];
   for(const [k,l] of SRC){
     const u=ST.uploads[k];
@@ -4797,6 +4799,7 @@ function remList(){
     const d=Math.floor((Date.now()-u.ts)/864e5);
     if(d>7)out.push({k,l,t:'загружена '+d+' '+plural(d,'день','дня','дней')+' назад — устарела',old:1});
   }
+  if(ST.uploads.c1&&!ST.uploads.mgr1c&&!C1.some(r=>r.mgr))out.push({k:'mgr1c',l:'Менеджеры в выгрузке 1С',t:'в загруженной выгрузке нет колонки «Менеджер» — менеджеры по 1С не сверяются',old:1});
   return out;
 }
 function remBar(inOverview){
