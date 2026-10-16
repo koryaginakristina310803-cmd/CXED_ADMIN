@@ -2062,7 +2062,9 @@ function mrSheetName(m,used){
   while(used.has(k.toLowerCase()))k=n.slice(0,26)+' '+(i++);
   used.add(k.toLowerCase());return k;
 }
-const mrMain=m=>m!=='Не указан'&&(KPI.byMgr[m]?.n||0)>=3;
+const _nmTok=/^[А-ЯЁA-Z][А-ЯЁа-яёA-Za-z]*(?:-[А-ЯЁA-Z][А-ЯЁа-яёA-Za-z]*)?$/,_nmIni=/^(?:[А-ЯЁA-Z]\.?){1,2}$/;
+const nameLike=m=>{const one=t=>{t=String(t||'').trim();if(!t||/\d/.test(t))return false;const w=t.split(/\s+/);if(w.length>3||!w.every(x=>_nmIni.test(x)||_nmTok.test(x)))return false;return w.some(x=>_nmTok.test(x)&&x.length>2)};const parts=String(m||'').split(/\s*\/\s*/);return parts.length<=3&&parts.every(one)};
+const mrMain=m=>m!=='Не указан'&&(nameLike(m)||((KPI.byMgr[m]?.n||0)>=5&&!/\d/.test(m)&&m.trim().split(/\s+/).length<=3));
 async function mrReport(o,only){
   const rows=mrRows(o,only);if(!rows.length){toast('По выбранным условиям недостатков нет');return}
   const single=only&&only.length===1;
@@ -5686,7 +5688,7 @@ function preSend(spec){
   const W=[];
   const sc=CON.filter(c=>c.k==='o'&&inScope(c));
   try{const n=mgrCheckCount();if(n)W.push({tone:'warn',t:`У ${n} ${plural(n,'договора','договоров','договоров')} нет решения по менеджеру (расхождение с 1С или менеджер не указан) — они попадут в файл не к тому, кому нужно, или в «Не указан». Разберите на странице «Менеджеры → Что проверить».`})}catch(e){}
-  try{const odd=managers().filter(m=>m!=='Не указан'&&!mrMain(m)&&(KPI.byMgr[m]?.open||0)>0);if(odd.length)W.push({tone:'warn',t:`Нестандартные записи в колонке «Менеджер»: ${odd.slice(0,5).join(', ')}${odd.length>5?' и ещё '+(odd.length-5):''}. Это не похоже на отдельного менеджера — проверьте написание.`})}catch(e){}
+  try{const odd=managers().filter(m=>m!=='Не указан'&&!mrMain(m)&&(KPI.byMgr[m]?.open||0)>0);if(odd.length)W.push({tone:'warn',t:`В колонке «Менеджер» вместо фамилии записано: ${odd.slice(0,5).map(x=>'«'+x+'»').join(', ')}${odd.length>5?' и ещё '+(odd.length-5):''}. Это пометка, дата или опечатка, а не фамилия — исправьте в Описи или назначьте менеджера в «Что проверить».`})}catch(e){}
   try{if(C1.length&&sc.length){const found=sc.filter(c=>c.c1&&!['nocp','none'].includes(c.c1)).length;const p=found/sc.length;if(p<.4)W.push({tone:'bad',t:`В 1С найдено только ${Math.round(p*100)}% договоров из Описи. Возможно, загружена не та выгрузка 1С. Проверьте перед отправкой.`})}}catch(e){}
   try{if(['allm','rep','alla'].includes(spec.id)){const r=sc.filter(c=>{const m=markOf(c);return m&&(m.s==='done'||m.s==='skip')}).length;if(r)W.push({tone:'info',t:`В файл войдут и ${r} ${plural(r,'договор','договора','договоров')}, которые вы отметили «Готово» или «Не нужно».`})}}catch(e){}
   try{const nd=sc.filter(c=>!c.date).length;if(nd&&mgFloor())W.push({tone:'info',t:`${nd} ${plural(nd,'договор','договора','договоров')} без даты в Описи включены в файл независимо от периода.`})}catch(e){}
