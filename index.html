@@ -5381,6 +5381,44 @@ function bkTick(){
 }
 setTimeout(bkTick,25000);setInterval(bkTick,10*60*1000);
 
+
+/* ===== feat3: диагностика ===== */
+const APP_BUILD='2026-10-16';
+window.__errs=window.__errs||[];
+window.addEventListener('error',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String(e.message||e).slice(0,300),at:(e.filename||'').split('/').pop()+':'+(e.lineno||'')});window.__errs=window.__errs.slice(-30)}catch(_){}});
+window.addEventListener('unhandledrejection',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String((e.reason&&e.reason.message)||e.reason).slice(0,300)});window.__errs=window.__errs.slice(-30)}catch(_){}});
+async function diagData(){
+  const S=(f,d)=>{try{return f()}catch(e){return d===undefined?('ошибка: '+e.message):d}};
+  const iso=ts=>ts?new Date(ts).toISOString():null;
+  const sc=CON.filter(c=>c.k==='o'&&inScope(c));
+  const cnt=(f)=>{const o={};for(const c of sc){const v=f(c)||'—';o[v]=(o[v]||0)+1}return o};
+  const marks={total:0};for(const m of Object.values(ST.marks||{})){if(m&&m.s){marks[m.s]=(marks[m.s]||0)+1;marks.total++}}
+  const snapDays=Object.keys(ST.snaps||{}).sort();
+  const bk=await S(bkList,[]);
+  return{
+    app:{build:APP_BUILD,dataBuilt:S(()=>DATA.built),view:!!VIEW,userAgent:navigator.userAgent,screen:innerWidth+'x'+innerHeight,protocol:location.protocol,time:new Date().toISOString(),stateUpdated:iso(ST.updated)},
+    sources:Object.entries(ST.uploads||{}).map(([k,u])=>({key:k,file:u.name,rows:u.n,uploaded:iso(u.ts),group:u.g||''})),
+    counts:{contractsAll:CON.length,inScope:sc.length,archiveDocs:DOCS.length,c1Rows:C1.length,sxRows:SXREC.length,sbisRows:SBIS.length},
+    kpi:S(()=>({total:KPI.total,full:KPI.full,open:KPI.open,c1bad:KPI.c1bad,c1warn:KPI.c1warn,sxbad:KPI.sxbad,sxwarn:KPI.sxwarn,sbbad:KPI.sbbad,mgrless:KPI.mgrless})),
+    statuses:{c1:cnt(c=>c.c1),sx:cnt(c=>c.sx),sb:cnt(c=>c.sb)},
+    marks,
+    pairs:S(()=>({open:pairsList().length,decided:Object.keys(ST.cpalias||{}).length})),
+    snapshots:snapDays.slice(-6).map(d=>{const s=ST.snaps[d]||{};return{date:d,total:s.t,full:s.f,open:s.o,c1:s.c1,sx:s.sx}}),
+    sync:{configured:!!SYNC.cfg(),status:SYNC.status,lastOk:iso(SYNC.lastOk),hasRemoteSha:!!SYNC.sha},
+    backups:{count:bk.length,last:bk[0]?iso(bk[0].at):null},
+    settings:{from:ST.settings&&ST.settings.from,mgFrom:ST.settings&&ST.settings.mgFrom,otherSrc:!!(ST.settings&&ST.settings.otherSrc),pal:LS.get('sxed_pal','soft'),theme:LS.get('sxed_theme','auto')},
+    errors:(window.__errs||[]).slice(-20)
+  };
+}
+function diagMount(el){
+  const anchor=el.querySelector('#bk-auto')||(el.querySelector('#bk-x')&&el.querySelector('#bk-x').closest('section,.card'));
+  if(!anchor||el.querySelector('#dg-card'))return;
+  anchor.insertAdjacentHTML('afterend',`<section class="card" id="dg-card"><h3>${ic('list',20)} Диагностика</h3><p class="muted sm">Файл с цифрами и состоянием этого устройства: какие выгрузки загружены и когда, итоги сверки, синхронизация, ошибки. <b>Названий контрагентов и номеров договоров в нём нет</b> — можно присылать, если что-то считается не так.</p><div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn" id="dg-dl">${ic('dl',15)} Скачать файл диагностики</button><button class="btn" id="dg-cp">${ic('copy',15)} Скопировать текст</button></div></section>`);
+  el.querySelector('#dg-dl').onclick=async()=>{const d=await diagData();download('СХЭД_диагностика_'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.json',new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));toast('Файл диагностики сохранён')};
+  el.querySelector('#dg-cp').onclick=async()=>{const d=await diagData();copyText(JSON.stringify(d,null,2),'диагностика')};
+}
+{const _vs2=V.settings;V.settings=function(el,sub){_vs2(el,sub);try{diagMount(el)}catch(e){console.error(e)}}}
+
 window.addEventListener('DOMContentLoaded',boot);
 
 </script></body></html>
