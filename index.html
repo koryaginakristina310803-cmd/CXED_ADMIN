@@ -257,7 +257,8 @@ const cpk=s=>nn(String(s??'').toUpperCase().replace(/Ё/g,'Е').replace(LEGRX,'$
 const LEG=new Set(['ООО','АО','ПАО','ЗАО','ИП','ГК','СК','СЗ','ТСН','ТСЖ','ПКФ','МК','ПК','ХК','ТД','ФИЛИАЛ','ЛТД','ХП','НПО','НПП','ОП','ПКО']);
 const toks=s=>{s=String(s??'').toUpperCase().replace(/Ё/g,'Е').replace(/\((.*?)\)/g,' $1 ').replace(/[ABCEHKMOPTXY]/g,c=>HM[c]);return new Set((s.match(/[0-9A-ZА-Я]+/g)||[]).filter(w=>!LEG.has(w)&&!/^\d{8,}$/.test(w)))};
 const subset=(a,b)=>{for(const x of a)if(!b.has(x))return false;return true};
-const tokmatch=(a,b)=>{if(!a.size||!b.size)return false;const[sm,bg]=a.size<=b.size?[a,b]:[b,a];if(!subset(sm,bg))return false;const ls=[...sm].join('').length;return ls>=4&&ls*2>[...bg].join('').length};
+const _tl=new WeakMap();const tlen=t=>{let v=_tl.get(t);if(v===undefined){v=0;for(const w of t)v+=w.length;_tl.set(t,v)}return v};
+const tokmatch=(a,b)=>{if(!a.size||!b.size)return false;const[sm,bg]=a.size<=b.size?[a,b]:[b,a];if(!subset(sm,bg))return false;const ls=tlen(sm);return ls>=4&&ls*2>tlen(bg)};
 const cpmatchK=(a,b)=>{if(!a||!b)return false;if(a===b)return true;if(a.length<5||b.length<5)return false;
   const[sh,lg]=a.length<=b.length?[a,b]:[b,a];
   if(lg.includes(sh))return sh.length*10>=lg.length*6;   // одно название внутри другого, но не «Лидер» в «Лидерстрой»
@@ -266,12 +267,15 @@ const cpmatchK=(a,b)=>{if(!a||!b)return false;if(a===b)return true;if(a.length<5
 const MON={января:1,февраля:2,марта:3,апреля:4,мая:5,июня:6,июля:7,августа:8,сентября:9,октября:10,ноября:11,декабря:12};
 function parseDate(v){
   if(v==null||v==='')return '';
-  if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+pad(v.getMonth()+1)+'-'+pad(v.getDate());
-  if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())}
+  const ok=(y,mo,d)=>{y=+y;mo=+mo;d=+d;if(!(y>=1990&&y<=2100&&mo>=1&&mo<=12&&d>=1))return '';const dim=new Date(Date.UTC(y,mo,0)).getUTCDate();return d<=dim?y+'-'+pad(mo)+'-'+pad(d):''};
+  if(v instanceof Date&&!isNaN(v)){const w=new Date(v.getTime()+12*36e5);return ok(w.getFullYear(),w.getMonth()+1,w.getDate())}   // SheetJS отдаёт дату как 23:59:43 предыдущего дня — округляем к ближайшим суткам
+  if(typeof v==='string'&&/^[A-Z][a-z]{2}\s+[A-Z][a-z]{2}\s+\d{1,2}\s+\d{4}\s+\d\d:\d\d:\d\d/.test(v.trim())){const d=new Date(v.trim());if(!isNaN(d))return parseDate(d)}
+  if(typeof v==='number'&&v>20000&&v<80000){const d=new Date(Math.round((v-25569)*864e5));return ok(d.getUTCFullYear(),d.getUTCMonth()+1,d.getUTCDate())}
   const s=String(v).trim();let m;
-  if(m=s.match(/^(\d{4})-(\d{2})-(\d{2})/))return m[1]+'-'+m[2]+'-'+m[3];
-  if(m=s.match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/)){let y=+m[3];if(y<100)y+=2000;return y+'-'+pad(+m[2])+'-'+pad(+m[1])}
-  if(m=s.toLowerCase().match(/(\d{1,2})\s+([а-я]+)\s+(\d{4})/))if(MON[m[2]])return m[3]+'-'+pad(MON[m[2]])+'-'+pad(+m[1]);
+  if(/^\d{5}(\.\d+)?$/.test(s)&&+s>20000&&+s<80000)return parseDate(+s);
+  if(m=s.match(/^(\d{4})[-.\/](\d{1,2})[-.\/](\d{1,2})(?!\d)/))return ok(m[1],m[2],m[3]);
+  if(m=s.match(/(?<![\d])(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})(?!\d)/)){let y=+m[3];if(m[3].length===3)return '';if(y<100)y+=2000;return ok(y,m[2],m[1])}
+  if(m=s.toLowerCase().match(/(\d{1,2})\s+([а-я]+)\s+(\d{4})/))if(MON[m[2]])return ok(m[3],MON[m[2]],m[1]);
   return '';
 }
 const yearOf=iso=>iso?+iso.slice(0,4):null;
@@ -397,7 +401,7 @@ const SYNC={
   },
   setStatus(s){this.status=s;const e=$('#syncchip');if(e){e.dataset.s=s;e.querySelector('.t').textContent=({off:'Не подключено',sync:'Синхронизация…',ok:'Синхронизировано',err:'Ошибка синхронизации'})[s]}}
 };
-const stateSig=()=>Object.keys(ST.uploads||{}).sort().map(k=>k+':'+((ST.uploads[k]||{}).ts||0)).join(',')+'|'+Object.keys(ST.cpalias||{}).length+'|'+JSON.stringify(ST.settings||{});
+const stateSig=()=>Object.keys(ST.uploads||{}).sort().map(k=>k+':'+((ST.uploads[k]||{}).ts||0)).join(',')+'|'+['cpalias','mgrfix'].map(n=>{const o=ST[n]||{};let t=0,m='';for(const k in o){t+=(o[k]&&o[k].ts)||0;m+=(o[k]&&(o[k].v||o[k].m))||''}return Object.keys(o).length+':'+t+':'+m.length}).join('|')+'|'+JSON.stringify(ST.settings||{});
 const syncSoon=debounce(()=>{if(SYNC.cfg())SYNC.sync(false)},20000);
 
 let KEY=null,SALT=null,ITER=200000,DATA=null;
@@ -428,6 +432,7 @@ function loadXLSX(){if(window.XLSX)return Promise.resolve();return _xl||(_xl=new
 const GUESS={
   num:[/номер.*договор|№.*договор|^номер$|^№$|номер документа|^договор$|num/i],
   cp:[/контрагент|клиент|покупатель|организаци|партн[её]р|наименование контрагента|counterpart/i],
+  to:[/срок действия|действует по|дата окончани|окончани[ея]|действителен до|valid ?to/i],
   date:[/дата.*договор|^дата$|дата документа|дата заключ|от даты|date/i],
   inn:[/инн/i],
   name:[/рабочее наименование|наименование|предмет|название|описание/i],
@@ -446,28 +451,54 @@ function guessCols(header){
   }
   return map;
 }
+const normInn=v=>{let t=String(v??'').trim().replace(/\.0+$/,'').replace(/[\s-]/g,'');if(/^\d{9}$/.test(t)||/^\d{11}$/.test(t))t='0'+t;return t};   // Excel съедает ведущий ноль ИНН
+const clean1=v=>String(v??'').replace(/\s+/g,' ').trim();
 function normRecords(rows,map,hdrRow){ // -> записи источника
   const out=[];
   for(let r=hdrRow+1;r<rows.length;r++){
     const x=rows[r];if(!x)continue;
     const g=k=>map[k]!=null?x[map[k]]:null;
-    const numRaw=String(g('num')??'').trim(),name=String(g('name')??'').trim(),cp=String(g('cp')??'').trim();
+    const numRaw=String(g('num')??'').trim(),name=clean1(g('name')),cp=clean1(g('cp'));
     if(!numRaw&&!name&&!cp)continue;
+    if(!cp&&map.cp!=null)continue;                      // строка без контрагента (итоги, заголовки групп) — не договор
+    if(/^(итого|всего|итог)\b/i.test(name||numRaw||cp))continue;
     let date=parseDate(g('date'));
     let num=numRaw,generic=!numRaw||/^\s*Основ/i.test(numRaw);
     if(!date&&name){const m=name.match(/от\s*(\d{1,2}\.\d{2}\.\d{2,4})/);if(m)date=parseDate(m[1])}
     if(generic&&name){const m=name.match(/(?:№|\bNo\.?)\s*(.+?)\s+от\s+\d|(?:№|\bNo\.?)\s*(\S+)/i);if(m){const v=(m[1]||m[2]).trim().replace(/^[ .,;()]+|[ .,;()]+$/g,'');if(v&&/\d/.test(v)){num=v;generic=false}}}
-    const inn=String(g('inn')??'').match(/\d{10,12}/)?.[0]||(cp.match(/(?<!\d)(\d{10}|\d{12})(?!\d)/)||[])[0]||'';
-    out.push({i:out.length,num,name,cp,state:String(g('state')??'').trim(),date,generic:generic?1:0,inn,type:String(g('type')??'').trim(),mgr:(v=>BADMGR.test(v)?'':v)(String(g('mgr')??'').trim()),org:String(g('org')??'').trim()});
+    const inn=normInn(g('inn')).match(/^\d{10,12}$/)?.[0]||String(g('inn')??'').match(/\d{10,12}/)?.[0]||(cp.match(/(?<!\d)(\d{10}|\d{12})(?!\d)/)||[])[0]||'';
+    out.push({i:out.length,num,name,cp,state:String(g('state')??'').trim(),date,to:parseDate(g('to')),generic:generic?1:0,inn,type:String(g('type')??'').trim(),mgr:(v=>BADMGR.test(v)?'':v)(String(g('mgr')??'').trim()),org:String(g('org')??'').trim()});
   }
   return out;
 }
 const DRE=/\d{1,2}\.\d{2}\.\d{2,4}|\d{1,2}\s+[а-яА-Я]+\s+\d{4}/g;
+const NUM_NOTE=/\s*[-–—,;(\[]*\s*(подписан[а-я]*|подпис[а-я]*|в\s*эдо|эдо|через\s*эдо|скан[а-я]*|оригинал[а-я]*|копи[яи]|электронн[а-я]*|бумажн[а-я]*)(?![А-Яа-яЁёA-Za-z0-9]).*$/i;
+const cleanNum=v=>{const t=String(v??'').trim();let m=t.match(NUM_NOTE);if(m&&m.index>=2)return t.slice(0,m.index);m=t.match(/\s+от\s+\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4}.*$/i);return m&&m.index>=2?t.slice(0,m.index):t};   // «3444-24ДОГ/БОС - подписан в ЭДО 06.02.25» → «3444-24ДОГ/БОС»: приписки в номере не мешают сверке
+const nmk=v=>nzk(nn(cleanNum(v)));
+const nzk=k=>String(k||'').replace(/(^|[^0-9])0+(?=[0-9])/g,'$1');   // «0045» = «45», «Д-005» = «Д-5»: только для сопоставления
+const FIO_STOP=new Set(['ИП','ООО','АО','ЗАО','ПАО','ФЛ','ГЛАВА','КФХ','КРЕСТЬЯНСКОЕ','ФЕРМЕРСКОЕ','ХОЗЯЙСТВО','ИНДИВИДУАЛЬНЫЙ','ПРЕДПРИНИМАТЕЛЬ','САМОЗАНЯТЫЙ']);
+function fioParts(s){const w=String(s??'').toUpperCase().replace(/Ё/g,'Е').replace(/[^А-ЯЁA-Z.\s-]/g,' ').split(/\s+/).filter(Boolean).filter(x=>!FIO_STOP.has(x.replace(/\./g,'')));
+  if(!w.length||w.length>4)return null;let sur=null;const ini=[];
+  for(const t of w){const parts=t.split('.').filter(Boolean);if(t.includes('.')&&parts.every(x=>x.length===1)){ini.push(...parts);continue}
+    if(/^[А-Я-]{2,}$/.test(t)){if(!sur&&t.length>=4)sur=t;else ini.push(t[0])}else return null}
+  return sur&&ini.length?{sur,ini}:null}
+const _fc=new Map();const fioC=s=>{let v=_fc.get(s);if(v===undefined){v=(/(^|[^А-ЯЁ])(ИП|ФЛ)(?![А-ЯЁ])/i.test(s)||/[А-ЯЁ]\./.test(s))?{gate:true,p:fioParts(s)}:{gate:false,p:fioParts(s)};if(_fc.size>50000)_fc.clear();_fc.set(s,v)}return v};
+function fioMatch(a,b){const A=fioC(a),B=fioC(b);if(!A.gate&&!B.gate)return false;
+  const x=A.p,y=B.p;if(!x||!y||x.sur!==y.sur)return false;const n=Math.min(x.ini.length,y.ini.length);for(let i=0;i<n;i++)if(x.ini[i]!==y.ini[i])return false;return true}
+function dateFromName(name){const t=String(name||'');let m=t.match(/от\s*[«"“]?\s*(\d{1,2})\s*[»"”]?\s*([а-яё]+)\s*(\d{4})/i)||t.match(/[«"“](\d{1,2})[»"”]\s*([а-яё]+)\s*(\d{4})/i);
+  if(m&&MON[m[2].toLowerCase()])return parseDate(m[1]+' '+m[2].toLowerCase()+' '+m[3]);
+  m=t.match(/от\s*(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4})/i);return m?parseDate(m[1]):''}
+function numFromName(name){const t=String(name||'').trim();if(!t||/^основной/i.test(t))return null;
+  let m=t.match(/(?:№|\bNo\.?)\s*([^\s,;()]+)/i)||t.match(/^(?:договор|контракт|соглашение|дополнительное соглашение|спецификация|счет-договор|счёт-договор)[а-я]*\s+(?:поставки\s+|подряда\s+|купли-продажи\s+|на\s+\S+\s+)?([^\s,;()]*\d[^\s,;()]*)\s+от\s/i);
+  if(!m)return null;const num=m[1].replace(/^[.,;:()]+|[.,;:()]+$/g,'');if(!/\d/.test(num))return null;
+  const dm=t.match(/от\s*(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4})/i);return{num,date:dm?parseDate(dm[1]):''}}
 function buildIndex(recs){
   const idx={byk:new Map(),byck:new Map(),names:[]};
   for(const c of recs){
-    c.k=c.generic?'':nn(c.num);c.ck=cpk(c.cp);c.tk=toks(c.cp);
-    if(c.k){if(!idx.byk.has(c.k))idx.byk.set(c.k,[]);idx.byk.get(c.k).push(c);idx.names.push([nn((c.name||'').replace(DRE,' ')),c])}
+    c.k=c.generic?'':nmk(c.num);c.ck=cpk(c.cp);c.tk=toks(c.cp);
+    if(c.generic&&!c.k&&c.name){const e=numFromName(c.name);if(e){c.k=nmk(e.num);if(e.date&&!c._dn){c.date=e.date;c._dn=1}}}   // «Договор 010322-У от 01.03.2022г» без номера в колонке
+    if(c.name&&c._nd===undefined)c._nd=dateFromName(c.name);
+    if(c.k){if(!idx.byk.has(c.k))idx.byk.set(c.k,[]);idx.byk.get(c.k).push(c);idx.names.push([nzk(nn((c.name||'').replace(DRE,' '))),c])}
     if(!idx.byck.has(c.ck))idx.byck.set(c.ck,[]);idx.byck.get(c.ck).push(c);
   }
   idx.all=recs;return idx;
@@ -475,8 +506,10 @@ function buildIndex(recs){
 const ALIAS={same:new Set(),diff:new Set()};
 const pairKey=(a,b)=>a<b?a+'|'+b:b+'|'+a;
 function rebuildAlias(){ALIAS.same=new Set();ALIAS.diff=new Set();const A=(typeof ST!=='undefined'&&ST.cpalias)||{};for(const k in A){if(A[k]&&A[k].v==='same')ALIAS.same.add(k);else if(A[k]&&A[k].v==='diff')ALIAS.diff.add(k)}}
-const aliasOf=(ka,kb)=>{if(!ka||!kb||ka===kb)return 0;const p=pairKey(ka,kb);return ALIAS.diff.has(p)?-1:ALIAS.same.has(p)?1:0};
-function sameCp(x,c,tkx,ckx){const al=aliasOf(ckx,c.ck);if(al)return al>0;return (x.inn&&c.inn&&x.inn===c.inn)||tokmatch(tkx,c.tk)||cpmatchK(ckx,c.ck)}
+const aliasOf=(ka,kb)=>{if(!ka||!kb||ka===kb||(!ALIAS.same.size&&!ALIAS.diff.size))return 0;const p=pairKey(ka,kb);return ALIAS.diff.has(p)?-1:ALIAS.same.has(p)?1:0};
+function sameCp(x,c,tkx,ckx){const al=aliasOf(ckx,c.ck);if(al)return al>0;return (x.inn&&c.inn&&x.inn===c.inn)||tokmatch(tkx,c.tk)||cpmatchK(ckx,c.ck)||(!!x.cp&&!!c.cp&&fioMatch(x.cp,c.cp))}
+const dayDiff=(a,b)=>Math.abs((Date.parse(a+'T00:00:00Z')-Date.parse(b+'T00:00:00Z'))/864e5);
+const dateNear=(a,b)=>!!a&&!!b&&dayDiff(a,b)<=1;   // даты в Описи и 1С могут отличаться на сутки (часовой пояс при чтении Excel)
 function matchOne(x,idx,tkx,ckx,kx){
   // кандидаты по номеру
   let cand=kx?[...(idx.byk.get(kx)||[])]:[];
@@ -486,14 +519,14 @@ function matchOne(x,idx,tkx,ckx,kx){
     const sts=new Set(m.map(c=>c.state));
     const closedOnly=m.every(c=>/закр/i.test(c.state));
     const anyClosed=m.some(c=>/закр/i.test(c.state));
-    const dated=m.filter(c=>c.date);
-    if(x.date&&dated.length&&!dated.some(c=>c.date===x.date)&&m.length===dated.length)return{code:'datediff',m:m.map(c=>c.i)};
+    const dated=m.filter(c=>c.date||c._nd);
+    if(x.date&&dated.length&&!dated.some(c=>dateNear(c.date,x.date)||dateNear(c._nd,x.date))&&m.length===dated.length)return{code:'datediff',m:m.map(c=>c.i)};
     return{code:closedOnly?'closed':anyClosed?'dup':'ok',m:m.map(c=>c.i)};
   }
   if(cand.length)return{code:'numoth',m:cand.map(c=>c.i)};
-  const same=(idx.all||[]).filter(c=>sameCp(x,c,tkx,ckx));
+  const mk=(x.inn||'')+'|'+(x.cp||'')+'|'+ckx;const SM=idx._same||(idx._same=new Map());let same=SM.get(mk);if(!same){same=(idx.all||[]).filter(c=>sameCp(x,c,tkx,ckx));SM.set(mk,same)}
   if(same.length){
-    const sd=same.filter(c=>!c.generic&&c.date&&c.date===x.date);
+    const sd=same.filter(c=>!c.generic&&(dateNear(c.date,x.date)||dateNear(c._nd,x.date)));
     if(sd.length)return{code:'cpdate',m:sd.map(c=>c.i)};
     if(same.every(c=>c.generic))return{code:'generic',m:same.map(c=>c.i)};
     return{code:'cpnodoc',m:[]};
@@ -503,7 +536,7 @@ function matchOne(x,idx,tkx,ckx,kx){
 function matchSource(contracts,recs){
   const idx=buildIndex(recs);const res=new Map();
   for(const x of contracts){
-    const kx=nn(x.num);const tk=toks(x.cp),ck=cpk(x.cp);
+    const kx=nmk(x.num);const tk=toks(x.cp),ck=cpk(x.cp);
     res.set(x.key,matchOne(x,idx,tk,ck,kx));
   }
   return res;
@@ -537,12 +570,12 @@ function buildAll(){
   C1=d1?d1.rows:DATA.c1.map(r=>({i:r[0],num:r[1],name:r[2],cp:r[3],state:r[4],date:r[5],generic:r[6],inn:'',from:r[7],to:r[8],orig:r[9],ostate:r[10],edo:r[11]}));
   SBIS=dsb?dsb.rows:[];
   SXREC=dsx?dsx.rows:DATA.sxd.map((r,i)=>({i,y:r[0],folder:r[1],cp:r[3],num:r[4],date:r[5],name:r[6],type:r[2],note:r[7]||'',generic:0,state:'',inn:''}));
-  const archIdx=new Map();DOCS.forEach((d,i)=>{if(d[1].startsWith('Договор')){const k=nn(d[3]);if(k){if(!archIdx.has(k))archIdx.set(k,[]);archIdx.get(k).push(i)}}});
+  const archIdx=new Map();DOCS.forEach((d,i)=>{if(d[1].startsWith('Договор')){const k=nmk(d[3]);if(k){if(!archIdx.has(k))archIdx.set(k,[]);archIdx.get(k).push(i)}}});
   for(const c of CON){if(c.mgr&&BADMGR.test(String(c.mgr).trim())){c.mgrBad=String(c.mgr);c.mgr=''}c.key=ckey(c);CONMAP.set(c.key,c);c.sb=c.sb||'unk';c.m1=c.m1c||[];c.msb=[]}
   const opisC=CON.filter(c=>c.k==='o');
   if(d1||uo){const r=matchSource(opisC,C1);for(const c of opisC){if(c.y!=null&&c.y<2022&&!uo)continue;const x=r.get(c.key);c.c1=x.code;c.m1c=x.m;c.todo1c=TODO1C[x.code]||''}}
   if(dsb){const r=matchSource(opisC,SBIS);for(const c of opisC){const x=r.get(c.key);c.sb=x.code;c.msb=x.m}}
-  const docsFor=c=>(archIdx.get(nn(c.num))||[]).filter(i=>{const d=DOCS[i];return aliasOf(cpk(d[2]),cpk(c.cp))>0||(aliasOf(cpk(d[2]),cpk(c.cp))===0&&cpmatchK(cpk(d[2]),cpk(c.cp)))||(c.date&&d[4]===c.date)});
+  const docsFor=c=>(archIdx.get(nmk(c.num))||[]).filter(i=>{const d=DOCS[i];return aliasOf(cpk(d[2]),cpk(c.cp))>0||(aliasOf(cpk(d[2]),cpk(c.cp))===0&&cpmatchK(cpk(d[2]),cpk(c.cp)))||(c.date&&dateNear(d[4],c.date))});
   if(dsx||uo){const r=matchSource(opisC,SXREC);for(const c of opisC){if(c.y!=null&&c.y<2022)continue;const x=r.get(c.key);c.msx=['ok','closed','dup','datediff','cpdate'].includes(x.code)?x.m:[];const archFound=(c.docs&&c.docs.length)||docsFor(c).length;c.sx=x.code==='ok'||x.code==='closed'||x.code==='dup'||x.code==='datediff'?'ok':(archFound?'arch':'no')}}
   if(uo)for(const c of opisC){c.docs=docsFor(c)}
   MG1C=null;for(const c of opisC)c.mgrOpis=c.mgr||'';
@@ -687,7 +720,7 @@ const missIn=it=>SRCS.filter(s=>it.p[s]===0);
 function mkRec(src,g,o){
   const r={src,g,kind:o.kind||'',cp:String(o.cp||'').trim(),inn:o.inn||'',num:String(o.num??'').trim(),date:o.date||null,dir:o.dir||'',ref:o.ref,extra:o.extra||''};
   r.y=r.date?+String(r.date).slice(0,4):(o.y!=null&&o.y!==''&&!isNaN(+o.y)?+o.y:null);
-  r.k=nn(r.num);r.ck=cpk(r.cp);r.tk=toks(r.cp);return r;
+  r.k=nmk(r.num);r.ck=cpk(r.cp);r.tk=toks(r.cp);return r;
 }
 const sameCpR=(a,b)=>(a.inn&&b.inn&&a.inn===b.inn)||tokmatch(a.tk,b.tk)||cpmatchK(a.ck,b.ck);
 const sameYr=(a,b)=>!a.date||!b.date||String(a.date).slice(0,4)===String(b.date).slice(0,4);
@@ -989,7 +1022,7 @@ function opisDiff(oldR,newR){
     }
   };
   pass(key3,null,()=>true);
-  pass(key2,(o,n)=>['Дата',fmtD(o.date)||'—',fmtD(n.date)||'—']);
+  pass(key2,(o,n)=>dateNear(o.date,n.date)&&o.date&&n.date?null:['Дата',fmtD(o.date)||'—',fmtD(n.date)||'—']);
   pass(keyD,(o,n)=>nn(o.num)===nn(n.num)?null:['Номер',o.num||'—',n.num||'—'],r=>!!r.date);
   pass(keyN,(o,n)=>['Контрагент',o.cp,n.cp]);
   const removed=O.filter(r=>!usedO.has(r._i)),added=N.filter(r=>!usedN.has(r._i));
@@ -1738,7 +1771,7 @@ function openContract(key){
   <div class="cl"><div><label>№ договора</label><b class="mono">${esc(c.num||'—')}</b> ${cbtn('№',c.num||'')}</div><div><label>Дата</label><b>${fmtD(c.date)||'—'}</b> ${c.date?cbtn('дата',fmtD(c.date)):''}</div><div><label>ИНН</label><b>${esc(c.inn||'—')}</b> ${c.inn?cbtn('ИНН',c.inn):''}</div><div><label>Менеджер</label><b>${esc(mgrLabel(c)||'не указан')}</b></div></div>
   <div class="btns">${cbtn('Контрагент',c.cp)}${cbtn('«Контрагент № номер»',c.cp+' '+(c.num||''))}${!VIEW&&c.k==='o'?`<button class="btn sm" data-arch="${esc(key)}">${ic('search',14)}<span>Искать в архивах</span></button>`:''}</div></div>
   ${c.k==='o'?`<div class="stat4 stat5"><div><label>Опись</label><span class="pill ok">есть</span></div><div><label>1С</label>${pill(L1C,c.c1)}</div>${HIDE()?'':`<div><label>СХЭД</label>${pill(LSX,c.sx)}</div><div><label>СБИС</label>${pill(LSB,c.sb)}</div><div><label>Архивы</label>${docs.length?tag(docs.length+' файл.','info'):'<span class="muted">нет</span>'}</div>`}</div>`:''}
-  ${g.length?`<div class="callout ${g.some(x=>x.tone==='bad')?'bad':'warn'}"><b>Что сделать</b><p>${esc(todoText(c)).replace(/ \| /g,'<br>')}</p></div>`:(c.k==='o'&&inScope(c)?'<div class="callout ok"><b>Всё сведено</b><p>Договор найден во всех проверенных источниках.</p></div>':'')}
+  ${g.length?`<div class="callout ${g.some(x=>x.tone==='bad')?'bad':'warn'}"><b>Что делать дальше</b>${nextStepsHTML(c)}</div>`:(c.k==='o'&&inScope(c)?'<div class="callout ok"><b>Всё сведено</b><p>Договор найден во всех проверенных источниках.</p></div>':'')}
   ${isOpen(c)?(()=>{const a=issueAge(c);const ov=a!=null&&a>slaLimit();return `<div class="callout ${ov?'bad':''}"><b>Вопрос открыт ${a==null?'—':a+' дн.'}${ov?' — просрочен':''}</b><p class="sm">${(ST.settings.slaMode||'seen')==='contract'?'Считаем от даты договора.':'Считаем с момента, когда приложение впервые увидело пробел.'} Срок — ${slaLimit()} дней.</p></div>`})():''}
   ${VIEW?`<div class="sect"><h4>Статус</h4><p>${m.s?pill(WORK,m.s):'<span class="muted">без отметки</span>'}</p></div>`:`<div class="sect"><h4>Моя отметка</h4><div class="mark"><div class="seg" id="mk-s">${Object.keys(WORK).map(k=>`<button data-s="${k}" class="${m.s===k?'on':''}">${WORK[k][0]}</button>`).join('')}</div><input class="inp" id="mk-a" placeholder="Ответственный / кому передано" value="${esc(m.a||'')}"><textarea class="inp" id="mk-c" rows="3" placeholder="Комментарий (виден на всех ваших устройствах)">${esc(m.c||'')}</textarea><div class="row end"><button class="btn" id="mk-clr">Снять отметку</button><button class="btn pri" id="mk-ok">Сохранить</button></div></div></div>`}
   ${c.k==='o'?`<div class="sect"><h4>Что есть в описи</h4><dl class="dl"><dt>Спецификации</dt><dd>${esc(c.spec||'—')}</dd><dt>Допсоглашения</dt><dd>${esc(c.add||'—')}</dd><dt>Вид подписи</dt><dd>${esc(c.sig||'—')}</dd><dt>Оригинал</dt><dd>${esc(c.orig||'—')} ${origClass(c)!=='ok'?pill(ORIG_L,origClass(c)):''}</dd></dl></div>`:''}
@@ -1939,9 +1972,7 @@ function mgrPage(el,m){
   $('#mp-boss',el).onclick=()=>mrLetter(MRO(),[m]);
   $('#mp-z',el).onclick=()=>mgrZip(m);
   $('#mp-p',el).onclick=()=>window.print();
-  $('#mp-mail',el).onclick=()=>{let t=`Добрый день${m!=='Не указан'?', '+m.split(/[ /]/)[0]:''}!\nПо описи договоров не сведено ${vis.length} ${plural(vis.length,'договор','договора','договоров')}:\n`;
-    for(const[tt,f]of groups){const L=vis.filter(c=>f(c));if(L.length){t+=`\n${tt}:\n`+L.map(c=>`• ${c.cp}, № ${c.num} от ${fmtD(c.date)}`).join('\n')+'\n'}}
-    t+='\nПожалуйста, подтвердите/передайте документы, чтобы мы закрыли вопросы.';copyText(t,'текст письма')};
+  $('#mp-mail',el).onclick=()=>mailModal({kind:'mgr',m});
 }
 function miniList(L){return `<div class="tscroll"><table class="tbl"><tbody>${L.map(c=>{const k=markOf(c);return `<tr data-k="${esc(c.key)}"><td style="width:54px">${c.y}</td><td class="cpn"><b>${esc(c.cp)}</b></td><td class="mono">${esc(c.num)}</td><td>${fmtD(c.date)}</td><td class="sm muted">${esc(todoText(c)).slice(0,90)}</td><td>${k?.s?pill(WORK,k.s):''}</td></tr>`}).join('')}</tbody></table></div>`}
 
@@ -2596,7 +2627,7 @@ function attachAdd(done){
 
 /* ===== Загрузки выгрузок ===== */
 const SRC={
-  c1:{title:'1С — список договоров',icon:'file',hint:'Из 1С: «Договоры контрагентов» → список → «Вывести список» → сохранить как .mxl или .xlsx. Берутся колонки «Номер», «Рабочее наименование», «Контрагент», «Текущее состояние».',fields:[['num','Номер договора'],['name','Рабочее наименование'],['cp','Контрагент'],['date','Дата (если есть)'],['state','Состояние'],['inn','ИНН'],['type','Тип / вид документа']],accept:'.mxl,.xlsx,.xls,.csv'},
+  c1:{title:'1С — список договоров',icon:'file',hint:'Из 1С: «Договоры контрагентов» → список → «Вывести список» → сохранить как .mxl или .xlsx. Берутся колонки «Номер», «Рабочее наименование», «Контрагент», «Текущее состояние».',fields:[['num','Номер договора'],['name','Рабочее наименование'],['cp','Контрагент'],['date','Дата (если есть)'],['state','Состояние'],['inn','ИНН'],['type','Тип / вид документа'],['to','Срок действия (по)']],accept:'.mxl,.xlsx,.xls,.csv'},
   sbis:{title:'СБИС (ЭДО)',icon:'cloud',hint:'Выгрузка списка документов или договоров из СБИС в Excel. Нужны колонки: номер, контрагент, дата (по возможности ИНН).',fields:[['num','Номер договора/документа'],['cp','Контрагент'],['date','Дата'],['inn','ИНН'],['type','Тип/вид'],['name','Наименование'],['state','Статус']],accept:'.xlsx,.xls,.csv'},
   sxed:{title:'СХЭД — загруженные договоры',icon:'folder',hint:'Выгрузка списка договоров из самого СХЭД (Excel/CSV или сохранённая страница ds.nordfox.ru/tree — Ctrl+S в браузере) (атрибуты «Контрагент», «Номер», «Дата»). Нужна для актуальной сверки «Опись ↔ СХЭД».',fields:[['num','Номер договора'],['cp','Контрагент'],['date','Дата договора'],['type','Тип документа'],['name','Название файла']],accept:'.xlsx,.xls,.csv,.html,.htm'},
   mgr1c:{title:'Менеджеры из 1С',icon:'users',hint:'Выгрузка договоров из 1С с колонкой «Менеджер» (.mxl или .xlsx; нужны Контрагент, Номер или Рабочее наименование, Дата, Менеджер, Состояние, Организация). Берутся договоры с 2022 года, закрытые тоже. Менеджер подставляется там, где в описи он не указан или записан не фамилией; если в описи другой — остаётся опись, а расхождения попадают в список.',fields:[['cp','Контрагент'],['num','Номер договора'],['name','Рабочее наименование'],['date','Дата'],['inn','ИНН'],['mgr','Менеджер'],['state','Состояние'],['org','Организация']],accept:'.mxl,.xlsx,.xls'},
@@ -2664,7 +2695,7 @@ function mappingModal(k,rows,hdr,H,map,fname,sheetName,opts){
       let out;
       if(k==='opis'){
         if(map.num==null||map.cp==null){toast('Нужны колонки «Контрагент» и «№ договора»','bad');return}
-        out=[];for(let r=hdr+1;r<rows.length;r++){const x=rows[r];if(!x)continue;const g=f=>map[f]!=null?x[map[f]]:null;const cp=String(g('cp')??'').trim(),n=String(g('num')??'').trim();if(!cp&&!n)continue;out.push({row:r+1,cp,inn:String(g('inn')??'').trim(),num:n,date:parseDate(g('date')),spec:String(g('spec')??'').trim(),add:String(g('add')??'').trim(),orig:String(g('orig')??'').trim(),sig:String(g('sig')??'').trim(),mgr:String(g('mgr')??'').trim()})}
+        out=[];for(let r=hdr+1;r<rows.length;r++){const x=rows[r];if(!x)continue;const g=f=>map[f]!=null?x[map[f]]:null;const cp=String(g('cp')??'').trim(),n=String(g('num')??'').trim();if(!cp&&!n)continue;out.push({row:r+1,cp,inn:normInn(g('inn')),num:n,date:parseDate(g('date')),spec:String(g('spec')??'').trim(),add:String(g('add')??'').trim(),orig:String(g('orig')??'').trim(),sig:String(g('sig')??'').trim(),mgr:String(g('mgr')??'').trim()})}
       }else{
         if(k==='mgr1c'&&map.mgr==null){toast('Укажите колонку «Менеджер»','bad');return}
         if(map.num==null&&map.name==null){toast('Укажите колонку с номером договора','bad');return}
@@ -2690,7 +2721,9 @@ function mappingModal(k,rows,hdr,H,map,fname,sheetName,opts){
           ST.uploads[k]={ts:nowTs(),name:fname,n:out.length,rows:out};ST.uploads={...ST.uploads};
           logAct(`Загружено: ${S.title} — ${out.length} записей (${fname})`);
         }
+        let migN=0;if(k==='opis'&&!parts){try{migN=migrateKeys(out)}catch(e){console.error(e)}}
         touch();buildAll();closeModal();
+        if(migN)toast('Отметки и решения по '+migN+' договорам перенесены на исправленные даты','info',5000);
         if(opts&&opts.done){opts.done();if(opts.auto)return}
         if(parts&&Object.keys(parts).some(g=>g!=='dog')){regSummary(parts);return}
         toast(`Загружено ${num(out.length)} записей. Сверка пересчитана.`,'ok',5000);
@@ -2974,6 +3007,7 @@ function ctVer(host){
 }
 
 /* ===== Готовые пакеты файлов для загрузки в СХЭД ===== */
+const fitName=(s,max)=>{s=String(s);if(s.length<=max)return s;const m=s.match(/(\.[A-Za-z0-9]{1,6})$/);const ext=m?m[1]:'';return s.slice(0,max-ext.length).trim()+ext};   // Windows: путь до 260 знаков
 const safeName=s=>String(s||'').replace(/[\\\/:*?"<>|]+/g,'_').replace(/\s+/g,' ').trim().replace(/[. ]+$/,'').slice(0,120);
 const COPYRX=/\s\(\d+\)(\.[a-z0-9]+)$/i;
 /* папки с договорами в архивах: в одной папке лежат договор и все его приложения (спецификации, допсоглашения, протоколы) */
@@ -3002,11 +3036,11 @@ function contractFiles(c,opt={}){
   let idx=(c.docs||[]).slice();
   if(c.k==='o'&&c.sx==='part'&&!opt.all)idx=idx.filter(i=>!String(DOCS[i][1]).startsWith('Договор')); // в СХЭД договор уже есть — нужны только приложения
   const paths=new Set(idx.map(i=>DOCS[i][9]));
-  const folder=(c.y??'без года')+'/'+safeName(`${c.cp} — № ${c.num||'без номера'}${c.date?' от '+fmtD(c.date):''}`);
+  const folder=(c.y??'без года')+'/'+fitName(safeName(`${c.cp} — № ${c.num||'без номера'}${c.date?' от '+fmtD(c.date):''}`),80);
   for(const i of idx){
     const d=DOCS[i];if(seen.has(i))continue;seen.add(i);
     if(opt.skipCopies!==false&&COPYRX.test(d[9])&&paths.has(d[9].replace(COPYRX,'$1')))continue;
-    items.push({path:folder+'/'+safeName(d[9].split('/').pop()),rel:d[9],src:d[11],alts:[d[10]],kind:d[1]});
+    items.push({path:folder+'/'+fitName(safeName(d[9].split('/').pop()),90),rel:d[9],src:d[11],alts:[d[10]],kind:d[1]});
   }
   // приложения, лежащие в архиве рядом с договором (спецификации, допсоглашения, протоколы и др.)
   try{
@@ -3019,7 +3053,7 @@ function contractFiles(c,opt={}){
         if(String(d[1]).startsWith('Договор'))continue;
         if(opt.skipCopies!==false&&COPYRX.test(d[9])&&ps.has(d[9].replace(COPYRX,'$1')))continue;
         seen.add(i);have.add(d[9]);
-        items.push({path:folder+'/'+safeName(d[9].split('/').pop()),rel:d[9],src:d[11],alts:[d[10]],kind:d[1]});
+        items.push({path:folder+'/'+fitName(safeName(d[9].split('/').pop()),90),rel:d[9],src:d[11],alts:[d[10]],kind:d[1]});
       }
     }
   }catch(e){console.error(e)}
@@ -3028,7 +3062,7 @@ function contractFiles(c,opt={}){
     for(const g of allAtt()){
       if(nn(g.num)!==nn(c.num)||!cpmatchK(cpk(g.cp),cpk(c.cp)))continue;
       if(g.sver&&g.sver!=='Нет в СХЭД')continue;
-      for(const a of g.atts){if(!a.part||!a.path||items.some(x=>x.rel===a.path))continue;items.push({path:folder+'/'+safeName(a.path.split('/').pop()),rel:a.path,src:'Приложения_к_входящим_договорам_часть'+a.part,alts:[a.file].filter(Boolean),kind:'Приложение'})}
+      for(const a of g.atts){if(!a.part||!a.path||items.some(x=>x.rel===a.path))continue;items.push({path:folder+'/'+fitName(safeName(a.path.split('/').pop()),90),rel:a.path,src:'Приложения_к_входящим_договорам_часть'+a.part,alts:[a.file].filter(Boolean),kind:'Приложение'})}
     }
   }catch(e){}
   return{folder,items};
@@ -4752,7 +4786,7 @@ async function chkFile(file){
     const byKey=new Map();for(const c of CON)if(c.k==='o')byKey.set(nn(c.num)+'|'+cpk(c.cp),c);
     const R={name:file.name,sheets,now:[],still:[],check:[]};
     for(const x of found.values()){
-      const r=matchOne(x,idx,toks(x.cp),cpk(x.cp),nn(x.num));
+      const r=matchOne(x,idx,toks(x.cp),cpk(x.cp),nmk(x.num));
       const c=byKey.get(nn(x.num)+'|'+cpk(x.cp));
       const item={...x,code:r.code,m:r.m,mgr:c?(c.mgr||'—'):'—'};
       if(r.code==='ok')R.now.push(item);else if(C1_NEW.includes(r.code))R.still.push(item);else R.check.push(item);
@@ -5226,6 +5260,8 @@ V.today=function(el){
   const add=(n,tone,title,text,go,preset,btn)=>{if(n>0)items.push({n,tone,title,text,go,preset,btn})};
   try{const L=remList();if(L.length){const miss=L.filter(x=>!x.old).length;items.push({n:L.length,tone:'warn',title:miss?'Загрузите выгрузки':'Обновите выгрузки',text:L.map(x=>x.l+' — '+x.t).join('; '),go:'#overview',btn:'Открыть «Старт»'})}}catch(e){}
   try{const n=pairsList().length;add(n,'warn','Ответьте на спорные совпадения',n+' '+plural(n,'пара названий','пары названий','пар названий')+' контрагентов программа не может уверенно сравнить.','#pairs',null,'Разобрать')}catch(e){}
+  try{const sp=simPairs(false).length;add(sp,'warn','Проверьте похожие договоры',sp+' '+plural(sp,'пара','пары','пар')+' договоров одного контрагента похожи друг на друга — возможно, это дубли.','#similar',null,'Посмотреть')}catch(e){}
+  try{if(C1.some(r=>r.to)){const T=termRows().rows;const e1=T.filter(r=>r.cls==='ended').length,e2=T.filter(r=>r.cls==='soon').length;add(e1,'bad','Срок договора истёк',e1+' '+plural(e1,'договор','договора','договоров')+' с истёкшим сроком, но в 1С не закрыт'+plural(e1,'','ы','ы')+'.','#terms',null,'Открыть');add(e2,'warn','Скоро закончится срок',e2+' '+plural(e2,'договор','договора','договоров')+' — в ближайшие '+TERM_DAYS()+' дн.','#terms',null,'Открыть')}}catch(e){}
   const n1=sc.filter(c=>C1_NEW.includes(c.c1)).length;
   add(n1,'bad','Завести в 1С','Договоры из Описи, которых в 1С нет. Нужны менеджеры или главбух.','#contracts',{c1:C1_NEW,work:W0},'Показать договоры');
   const n1c=sc.filter(c=>['numoth','datediff','cpdate','dup','closed','generic'].includes(c.c1)).length;
@@ -5236,7 +5272,7 @@ V.today=function(el){
     const nsp=sc.filter(c=>c.sx==='part').length;
     add(nsp,'warn','Дозагрузить приложения в СХЭД','В СХЭД есть договор, но не хватает спецификаций или допсоглашений.','#contracts',{sx:['part'],work:W0},'Показать договоры');
   }
-  try{if(MG1C){const nn0=(MG1C.none||[]).length,nd=(MG1C.diff||[]).length;add(nd,'warn','Менеджер в Описи и в 1С разный',nd+' '+plural(nd,'договор','договора','договоров')+': проверьте, кто прав.','#managers/_check',null,'Разобрать');add(nn0,'mute','Менеджер не определён','Ни в Описи, ни в 1С не указан менеджер.','#managers/_check',null,'Посмотреть')}}catch(e){}
+  try{if(MG1C){const R0=mgcRows();const nn0=R0.none.length,nd=R0.diff.length;add(nd,'warn','Менеджер в Описи и в 1С разный',nd+' '+plural(nd,'договор','договора','договоров')+': проверьте, кто прав.','#managers/_check',null,'Разобрать');add(nn0,'mute','Менеджер не определён','Ни в Описи, ни в 1С не указан менеджер.','#managers/_check',null,'Посмотреть')}}catch(e){}
   try{const o=slaRows().filter(r=>r.over).length;add(o,'bad','Просроченные вопросы','Вопросы, которые висят дольше нормы.','#ctrl/sla',null,'Открыть')}catch(e){}
   try{const last=LS.get('sxed_lastbk',0);if(Date.now()-last>7*864e5)items.push({n:1,tone:'mute',title:'Сделайте резервную копию',text:last?'Последняя копия — '+Math.floor((Date.now()-last)/864e5)+' дн. назад.':'Копий ещё нет.',go:'#settings/sync',btn:'Открыть настройки'})}catch(e){}
   const dayStart=new Date();dayStart.setHours(0,0,0,0);
@@ -5418,6 +5454,288 @@ function diagMount(el){
   el.querySelector('#dg-cp').onclick=async()=>{const d=await diagData();copyText(JSON.stringify(d,null,2),'диагностика')};
 }
 {const _vs2=V.settings;V.settings=function(el,sub){_vs2(el,sub);try{diagMount(el)}catch(e){console.error(e)}}}
+
+/* ===== feat4: что делать дальше, письма, сроки, динамика, похожие договоры, проверка перед отправкой ===== */
+ICON.chart='<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>';
+ICON.calendar='<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>';
+ICON.mail='<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>';
+(function(){const st=document.createElement('style');st.textContent=`
+.ns{display:flex;gap:8px;align-items:flex-start;margin:5px 0;line-height:1.35}.ns .w{flex:0 0 auto;font-size:12px;padding:1px 8px;border-radius:99px;background:var(--panel2);border:1px solid var(--line);white-space:nowrap}
+.ns .ov{color:var(--bad);font-weight:600}.trsvg{width:100%;height:auto;display:block}.trsvg text{fill:var(--muted);font-size:11px}
+.dlt.up{color:var(--bad);font-weight:600}.dlt.dn{color:var(--ok);font-weight:600}.tl3{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.tl3>div{flex:1;min-width:170px}
+.mlbox textarea{width:100%;min-height:300px;font:13px/1.45 var(--mono,ui-monospace,monospace);resize:vertical}
+`;document.head.appendChild(st)})();
+{const g=NAVG.find(x=>x.t==='Мои задачи');if(g){g.items.splice(3,0,['terms','Сроки договоров','calendar'],['trend','Динамика по неделям','chart'],['similar','Похожие договоры','copy'])}}
+
+/* ---- 1. Что делать дальше ---- */
+function nextSteps(c){
+  const out=[];if(!c||c.k!=='o'||!inScope(c))return out;
+  const m=markOf(c);if(m&&(m.s==='done'||m.s==='skip'))return out;
+  const g=gapsOf(c);if(!g.length)return out;
+  const mg=c.mgr||'';
+  if(!mg&&c.mgrFix===undefined)out.push({s:'mg',tone:'warn',who:'Руководитель',what:'назначить менеджера: в Описи не указан, в 1С не найден'});
+  for(const x of g){
+    if(x.s==='c1')out.push({s:'c1',tone:x.tone,who:mg?'Менеджер '+mg:'Менеджер',what:'1С — '+(c.todo1c||TODO1C[c.c1]||x.t)});
+    else if(x.s==='sx')out.push({s:'sx',tone:x.tone,who:'Вы',what:'СХЭД — '+(c.sx==='no'?'загрузить договор и приложения':c.sx==='arch'?'договор лежит в архиве, загрузить его в СХЭД':'докомплектовать: '+((c.sxmiss||[]).join('; ')||'приложения'))});
+    else if(x.s==='sb')out.push({s:'sb',tone:x.tone,who:'Вы',what:'СБИС — проверить, есть ли договор'});
+  }
+  return out;
+}
+function nextStepsHTML(c){
+  const L=nextSteps(c);if(!L.length)return '<p class="muted">Ничего не требуется.</p>';
+  const a=issueAge(c),ov=a!=null&&a>slaLimit()&&isOpen(c);
+  const hasMgr=L.some(x=>x.s==='c1')&&c.mgr&&!VIEW;
+  return L.map(x=>`<div class="ns"><span class="w">${esc(x.who)}</span><span>${esc(x.what)}</span></div>`).join('')
+    +(ov?`<div class="ns"><span class="ov">Висит ${a} дн. — дольше нормы (${slaLimit()})</span></div>`:'')
+    +(hasMgr?`<div class="row" style="margin-top:6px"><button class="btn sm" data-mail="${esc(c.mgr)}">${ic('mail',14)}<span>Написать менеджеру</span></button></div>`:'');
+}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-mail]');if(b&&!VIEW){e.preventDefault();mailModal({kind:'mgr',m:b.dataset.mail})}});
+
+/* ---- 2. Письма ---- */
+function mailRows(m){
+  return withFloor(()=>{const D=c1Debt();const rows=m?D.rows.filter(r=>r.m===m):D.rows;return{D,rows}});
+}
+function mailText(t,opt){
+  const lim=opt.lim||25,rem=!!opt.rem;
+  const fmtRow=(r,i)=>{const a=issueAge(r.c),ov=a!=null&&a>slaLimit();return `${i+1}. ${r.c.cp}, № ${r.c.num||'без номера'}${r.c.date?' от '+fmtD(r.c.date):''}${r.kind==='c'?' — '+(L1C[r.c.c1]||L1C.unk)[0]:''}${ov?' (!)':''}`};
+  const floor=mgFloor();
+  const per=floor?` (договоры от ${fmtD(floor)} и позже)`:'';
+  if(t.kind==='boss'){
+    const {D}=mailRows('');
+    if(!D.rows.length)return 'По сверке Описи и 1С замечаний нет — писать нечего.';
+    const ms=D.list.filter(b=>mrMain(b.m));const rest=D.list.filter(b=>!mrMain(b.m)).reduce((a,b)=>a+b.n+b.chk,0);
+    let s=`Тема: Договоры, которых нет в 1С — сводка на ${fmtD(today())}\n\nДобрый день!\n\nПо сверке Описи и 1С${per} не сведено ${D.rows.length} ${plural(D.rows.length,'договор','договора','договоров')}: ${D.n} нет в 1С (нужно завести), ${D.chk} есть, но данные не совпадают.\n\nПо менеджерам:\n`;
+    s+=ms.map(b=>`• ${b.m} — ${b.n+b.chk} (завести ${b.n}, проверить ${b.chk})`).join('\n');
+    if(rest)s+=`\n• без менеджера или с нестандартной записью — ${rest}`;
+    const ovN=D.rows.filter(r=>{const a=issueAge(r.c);return a!=null&&a>slaLimit()}).length;
+    if(ovN)s+=`\n\nИз них дольше ${slaLimit()} дней висит ${ovN}.`;
+    s+=`\n\nПодробный список по каждому договору — в приложенном файле «Нет в 1С по менеджерам».\nПросим организовать завод договоров в 1С по списку.\n\nСпасибо!`;
+    return s;
+  }
+  const {rows}=mailRows(t.m);
+  if(!rows.length)return `По сотруднику ${t.m} замечаний по 1С нет — писать нечего.`;
+  const nw=rows.filter(r=>r.kind==='n'),ck=rows.filter(r=>r.kind==='c');
+  const ovN=rows.filter(r=>{const a=issueAge(r.c);return a!=null&&a>slaLimit()}).length;
+  const parts=String(t.m||'').trim().split(/\s+/);const first=(parts.length>1&&/^[А-ЯЁ][а-яё]{2,}$/.test(parts[1]))?', '+parts[1]:'';   // по имени, если оно есть; фамилию одну не используем
+  let s=`Тема: ${rem?'Напоминание: д':'Д'}оговоры, которые нужно свести с 1С\n\nДобрый день${first}!\n\n`;
+  s+=rem&&ovN?`Напоминаем: часть вопросов висит дольше ${slaLimit()} дней (в списке отмечены «(!)»).\n\n`:'';
+  s+=`По состоянию на ${fmtD(today())} по договорам, закреплённым за вами${per}, в 1С не сведено ${rows.length}:\n`;
+  if(nw.length)s+=`• нет в 1С, нужно завести — ${nw.length}\n`;
+  if(ck.length)s+=`• в 1С есть, но дата, номер или контрагент не совпали — ${ck.length}\n`;
+  const part=(title,L)=>{if(!L.length)return '';const sh=lim>0?L.slice(0,lim):L;return `\n${title}:\n`+sh.map(fmtRow).join('\n')+(L.length>sh.length?`\n… и ещё ${L.length-sh.length} — полный список в приложенном файле.`:'')+'\n'};
+  s+=part('Нужно завести в 1С',nw)+part('Нужно проверить в 1С',ck);
+  s+=`\nКогда сделаете — напишите, я отмечу в учёте. Если по какому-то договору вопрос не к вам (другой менеджер, договор закрыт), тоже ответьте.\n\nСпасибо!`;
+  return s;
+}
+function mailModal(t){
+  t=t||{kind:'mgr'};
+  const ms=withFloor(()=>{const D=c1Debt();return D.list.filter(b=>b.m!=='Не указан'&&mrMain(b.m)).map(b=>b.m)});
+  if(t.kind==='mgr'&&!t.m)t.m=ms[0]||'';
+  const mails=()=>ST.settings.mails=ST.settings.mails||{};
+  const hasOv=(m)=>{const {rows}=mailRows(m);return rows.some(r=>{const a=issueAge(r.c);return a!=null&&a>slaLimit()})};
+  const html=`<h3>${t.kind==='boss'?'Письмо главбуху':'Письмо менеджеру'}</h3>
+  <p class="muted sm">Текст готов — поправьте при необходимости и скопируйте. В письме только Опись и 1С, СХЭД не упоминается. Таблицу с договорами приложите файлом (кнопка «Excel»).</p>
+  <div class="row" style="gap:10px;flex-wrap:wrap;margin:8px 0">
+  ${t.kind==='mgr'?`<label>Кому <select class="inp" id="ml-m">${ms.map(m=>`<option ${m===t.m?'selected':''}>${esc(m)}</option>`).join('')||'<option value="">— нет менеджеров с замечаниями —</option>'}</select></label>`:''}
+  <label>Адрес (необязательно) <input class="inp" id="ml-e" placeholder="name@company.ru" style="min-width:220px"></label>
+  ${t.kind==='mgr'?`<label class="sw"><input type="checkbox" id="ml-r"><span>Это напоминание</span></label>
+  <label>Строк в списке <select class="inp" id="ml-l"><option value="15">15</option><option value="25" selected>25</option><option value="60">60</option><option value="0">все</option></select></label>`:''}</div>
+  <div class="mlbox"><textarea class="inp" id="ml-t"></textarea></div>
+  <div class="row end" style="margin-top:10px;gap:8px;flex-wrap:wrap"><button class="btn" id="ml-x">${ic('dl',15)} Excel</button><button class="btn" id="ml-d">${ic('dl',15)} Текст .txt</button><button class="btn" id="ml-o">${ic('mail',15)} В почтовую программу</button><button class="btn pri" id="ml-c">${ic('copy',15)} Скопировать</button></div>`;
+  openModal(html,m=>{
+    const T=m.querySelector('#ml-t'),E=m.querySelector('#ml-e');
+    const regen=()=>{const opt={rem:!!(m.querySelector('#ml-r')||{}).checked,lim:+((m.querySelector('#ml-l')||{}).value||25)};T.value=mailText(t,opt);
+      if(t.kind==='mgr'){E.value=mails()[t.m]||''}};
+    const sel=m.querySelector('#ml-m');
+    if(sel)sel.onchange=()=>{t.m=sel.value;const r=m.querySelector('#ml-r');if(r)r.checked=hasOv(t.m);regen()};
+    ['#ml-r','#ml-l'].forEach(q=>{const e=m.querySelector(q);if(e)e.onchange=regen});
+    const r0=m.querySelector('#ml-r');if(r0)r0.checked=hasOv(t.m);
+    regen();
+    E.onchange=()=>{if(t.kind==='mgr'&&t.m){mails()[t.m]=E.value.trim();ST.settings={...ST.settings};touch()}};
+    m.querySelector('#ml-c').onclick=()=>copyText(T.value,'текст письма');
+    m.querySelector('#ml-d').onclick=()=>download('Письмо_'+safeName(t.kind==='boss'?'главбуху':t.m)+'_'+today()+'.txt',new Blob(['﻿'+T.value],{type:'text/plain;charset=utf-8'}));
+    m.querySelector('#ml-o').onclick=()=>{const sub=(T.value.match(/^Тема:\s*(.*)$/m)||[])[1]||'Договоры';const body=T.value.replace(/^Тема:.*\n+/,'');let b=encodeURIComponent(body);let note='';
+      if(b.length>1700){let cut=body;while(encodeURIComponent(cut).length>1600)cut=cut.slice(0,Math.floor(cut.length*0.9));b=encodeURIComponent(cut.replace(/\n[^\n]*$/,'')+'\n\n[…текст обрезан — полный текст скопируйте кнопкой «Скопировать»]');note=1}
+      location.href='mailto:'+encodeURIComponent(E.value.trim())+'?subject='+encodeURIComponent(sub)+'&body='+b;if(note)toast('Письмо длинное — в почту ушла только первая часть. Полный текст: кнопка «Скопировать».','warn',6000)};
+    m.querySelector('#ml-x').onclick=()=>{if(t.kind==='boss')withFloor(()=>c1Excel());else debtOne(t.m)};
+  });
+}
+
+/* ---- 3. Сроки договоров ---- */
+const TERM_DAYS=()=>+LS.get('sxed_term_days',30)||30;
+function termRows(){
+  const idx=new Map(C1.map(r=>[r.i,r]));const out=[];let withEnd=0;
+  for(const c of CON){
+    if(c.k!=='o'||!inScope(c))continue;
+    const recs=(c.m1c||[]).map(i=>idx.get(i)||C1[i]).filter(Boolean).filter(r=>!r.generic);
+    if(!recs.length)continue;
+    let best=null,bd='';for(const r of recs){const d=parseDate(r.to);if(d&&d>bd){bd=d;best=r}}
+    const st=(best||recs[0]).state||'';const closed=/закр/i.test(st);
+    if(bd)withEnd++;
+    out.push({c,end:bd,days:bd?-daysFrom(bd):null,state:st,closed,cls:!bd?'noend':bd<today()?(closed?'ended-closed':'ended'):(-daysFrom(bd)<=TERM_DAYS()?'soon':'long')});
+  }
+  return{rows:out,withEnd,hasData:C1.some(r=>r.to)};
+}
+const TERM_L={ended:['Срок истёк, в 1С договор не закрыт','bad'],soon:['Скоро закончится','warn'],'ended-closed':['Срок истёк, закрыт','mute'],long:['Срок не скоро','ok'],noend:['Срока в 1С нет','mute']};
+function termsExcel(){
+  const T=termRows();const f=(cls)=>T.rows.filter(r=>r.cls===cls).sort((a,b)=>(a.end||'').localeCompare(b.end||''));
+  const row=r=>[r.c.y,r.c.cp,r.c.num,fmtD(r.c.date),fmtD(r.end),r.days==null?'':r.days,r.state,mgrLabel(r.c)];
+  const H=['Год','Контрагент','№ договора','Дата договора','Срок действия до','Дней до окончания','Состояние в 1С','Менеджер'];
+  return exportXLSX('Сроки_договоров_'+today()+'.xlsx',{'Истёк — не закрыт':[H,...f('ended').map(row)],['Скоро ('+TERM_DAYS()+' дн.)']:[H,...f('soon').map(row)],'Остальные':[H,...T.rows.filter(r=>['long','ended-closed'].includes(r.cls)).map(row)]});
+}
+V.terms=function(el){
+  const T=termRows();const F=V.terms.F=V.terms.F||{c:'ended',q:''};
+  if(!C1.length){el.innerHTML=`<div class="pghead"><div><h1>Сроки договоров</h1></div></div><div class="card empty-state">${ic('calendar',40)}<h3>Выгрузка 1С не загружена</h3><p class="muted">Загрузите список договоров из 1С — сроки берутся оттуда.</p><button class="btn pri" data-go="#uploads">Загрузить</button></div>`;return}
+  if(!T.hasData){el.innerHTML=`<div class="pghead"><div><h1>Сроки договоров</h1></div></div><div class="card empty-state">${ic('calendar',40)}<h3>В выгрузке 1С нет сроков действия</h3><p class="muted">Добавьте в выгрузку колонку «Действует по» (или «Срок действия») и загрузите её заново — на шаге «проверьте колонки» выберите её в поле «Срок действия (по)». Тогда здесь появятся договоры, срок которых истёк или скоро истечёт.</p><button class="btn pri" data-go="#uploads">Загрузить выгрузку 1С</button></div>`;return}
+  const n=c=>T.rows.filter(r=>r.cls===c).length;
+  el.innerHTML=`<div class="pghead"><div><h1>Сроки договоров</h1><p class="muted">По дате «Действует по» из 1С. Нужно вовремя продлить или закрыть.</p></div><div class="row"><label>Скоро — это <select class="inp" id="tm-d">${[30,60,90].map(d=>`<option ${d===TERM_DAYS()?'selected':''} value="${d}">${d} дн.</option>`).join('')}</select></label><button class="btn" id="tm-x">${ic('dl',16)} Excel</button></div></div>
+  <div class="tl3"><div class="card"><div class="muted sm">Срок истёк, в 1С не закрыт</div><div style="font-size:26px;font-weight:700">${num(n('ended'))}</div></div><div class="card"><div class="muted sm">Скоро (${TERM_DAYS()} дн.)</div><div style="font-size:26px;font-weight:700">${num(n('soon'))}</div></div><div class="card"><div class="muted sm">Срока в 1С нет</div><div style="font-size:26px;font-weight:700">${num(n('noend'))}</div></div></div>
+  <div class="card"><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px"><span class="seg" id="tm-s">${[['ended','Истёк'],['soon','Скоро'],['noend','Без срока'],['all','Все']].map(([k,l])=>`<button data-c="${k}" class="${F.c===k?'on':''}">${l}</button>`).join('')}</span><input class="inp" id="tm-q" placeholder="Поиск по контрагенту или номеру" value="${esc(F.q)}" style="min-width:260px"></div><div id="tm-r"></div></div>`;
+  const paint=()=>{const q=F.q.trim().toLowerCase();const L=T.rows.filter(r=>(F.c==='all'||r.cls===F.c)&&(!q||(r.c.cp+' '+r.c.num).toLowerCase().includes(q))).sort((a,b)=>(a.end||'9').localeCompare(b.end||'9'));
+    el.querySelector('#tm-r').innerHTML=L.length?`<div class="tscroll"><table class="tbl"><thead><tr><th>Контрагент</th><th>№</th><th>Дата</th><th>Действует по</th><th class="r">Дней</th><th>Менеджер</th><th>Состояние</th></tr></thead><tbody>${L.slice(0,300).map(r=>`<tr data-k="${esc(r.c.key)}"><td class="cpn"><b>${esc(r.c.cp)}</b></td><td class="mono">${esc(r.c.num)}</td><td>${fmtD(r.c.date)}</td><td>${fmtD(r.end)||'—'}</td><td class="r">${r.days==null?'—':r.days}</td><td>${esc(mgrLabel(r.c))}</td><td>${pill(TERM_L,r.cls)}</td></tr>`).join('')}</tbody></table></div>${L.length>300?`<p class="muted sm">Показано 300 из ${L.length} — остальное в Excel.</p>`:''}`:'<p class="muted">Нет договоров в этой группе.</p>';
+    el.querySelectorAll('#tm-r tr[data-k]').forEach(t=>t.onclick=()=>openContract(t.dataset.k))};
+  paint();
+  el.querySelectorAll('#tm-s button').forEach(b=>b.onclick=()=>{F.c=b.dataset.c;V.terms(el)});
+  el.querySelector('#tm-q').oninput=debounce(e=>{F.q=e.target.value;paint()},200);
+  el.querySelector('#tm-d').onchange=e=>{LS.set('sxed_term_days',+e.target.value);V.terms(el)};
+  el.querySelector('#tm-x').onclick=termsExcel;
+};
+HINTS.terms=['Сроки договоров','Договоры, у которых в 1С указан срок «Действует по»: уже истёк (а договор не закрыт) или скоро истечёт. Для этого в выгрузку 1С нужна колонка со сроком.'];
+
+/* ---- 4. Динамика по неделям ---- */
+const mondayOf=iso=>{const d=new Date(iso+'T00:00:00');const w=(d.getDay()+6)%7;d.setDate(d.getDate()-w);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
+function weeksData(n=12){
+  const days=Object.keys(ST.snaps||{}).sort();const by=new Map();
+  for(const d of days)by.set(mondayOf(d),{d,...ST.snaps[d]});
+  return [...by.entries()].map(([wk,s])=>({wk,...s})).slice(-n);
+}
+function trendSvg(W){
+  const w=720,h=230,L=44,R=70,T=14,B=28;const xs=W.map((_,i)=>L+(W.length>1?i/(W.length-1):0.5)*(w-L-R));
+  const mx=Math.max(1,...W.map(x=>Math.max(x.o||0,x.d||0)));const ymax=Math.ceil(mx*1.1/10)*10||10;
+  const y=v=>T+(1-(v/ymax))*(h-T-B);
+  const line=(k,col,lab)=>{const pts=W.map((s,i)=>[xs[i],y(s[k]||0)]);const last=pts[pts.length-1];return `<polyline fill="none" stroke="${col}" stroke-width="2.2" stroke-linejoin="round" points="${pts.map(p=>p.join(',')).join(' ')}"/>${pts.map(p=>`<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="${col}"/>`).join('')}<text x="${last[0]+8}" y="${last[1]+4}" style="fill:${col};font-weight:600">${lab} ${W[W.length-1][k]||0}</text>`};
+  const ticks=[0,.5,1].map(f=>Math.round(ymax*f));
+  return `<svg class="trsvg" viewBox="0 0 ${w} ${h}" role="img" aria-label="Открыто и закрыто по неделям">${ticks.map(t=>`<line x1="${L}" x2="${w-R}" y1="${y(t)}" y2="${y(t)}" stroke="var(--line)"/><text x="${L-6}" y="${y(t)+4}" text-anchor="end">${t}</text>`).join('')}${W.map((s,i)=>`<text x="${xs[i]}" y="${h-8}" text-anchor="middle">${fmtD(s.wk).slice(0,5)}</text>`).join('')}${line('o','var(--warn)','Открыто')}${line('d','var(--ok)','Закрыто')}</svg>`;
+}
+function trendMgr(){
+  const days=Object.keys(ST.snaps||{}).sort();if(days.length<2)return[];
+  const last=days[days.length-1];const at=(n)=>{const lim=(()=>{const d=new Date(last+'T00:00:00');d.setDate(d.getDate()-n);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())})();let b=null;for(const d of days)if(d<=lim)b=d;return b};
+  const w1=at(7),w4=at(28);const cur=(ST.snaps[last]||{}).m||{};const p1=w1?(ST.snaps[w1].m||{}):null,p4=w4?(ST.snaps[w4].m||{}):null;
+  return Object.keys(cur).map(m=>({m,now:cur[m],w1:p1?(p1[m]??0):null,w4:p4?(p4[m]??0):null})).map(r=>({...r,d1:r.w1==null?null:r.now-r.w1,d4:r.w4==null?null:r.now-r.w4})).sort((a,b)=>(b.d1??-999)-(a.d1??-999)||b.now-a.now);
+}
+V.trend=function(el){
+  const W=weeksData(12);const M=trendMgr();
+  if(W.length<2){el.innerHTML=`<div class="pghead"><div><h1>Динамика по неделям</h1></div></div><div class="card empty-state">${ic('chart',40)}<h3>Пока мало данных</h3><p class="muted">Приложение записывает «снимок» раз в день при открытии. Нужно хотя бы две недели с открытиями — тогда здесь будет график: сколько вопросов открыто и сколько закрыто. Сейчас снимков: ${Object.keys(ST.snaps||{}).length}.</p></div>`;return}
+  const dl=(v,inv)=>v==null?'<span class="muted">—</span>':`<span class="dlt ${v>0?'up':v<0?'dn':''}">${v>0?'+':''}${v}</span>`;
+  el.innerHTML=`<div class="pghead"><div><h1>Динамика по неделям</h1><p class="muted">Открыто — договоров с незакрытыми вопросами. Закрыто — отмечено «Готово» или «Не нужно». Данные — последний снимок недели.</p></div><div class="row"><button class="btn" id="tr-x">${ic('dl',16)} Excel</button></div></div>
+  <div class="card"><h3>Открыто и закрыто</h3>${trendSvg(W)}</div>
+  <div class="card tblw"><h3>По неделям</h3><div class="tscroll"><table class="tbl sm"><thead><tr><th>Неделя с</th><th class="r">Всего</th><th class="r">Открыто</th><th class="r">К прошлой неделе</th><th class="r">Закрыто</th><th class="r">Нет в 1С</th></tr></thead><tbody>${W.slice().reverse().map((s,i,a)=>{const prev=a[i+1];return `<tr><td>${fmtD(s.wk)}</td><td class="r">${s.t??'—'}</td><td class="r"><b>${s.o??'—'}</b></td><td class="r">${prev?dl((s.o||0)-(prev.o||0)):'<span class="muted">—</span>'}</td><td class="r">${s.d??'—'}</td><td class="r">${s.c1??'—'}</td></tr>`}).join('')}</tbody></table></div></div>
+  ${M.length?`<div class="card tblw"><h3>По менеджерам</h3><p class="muted sm">Открытых договоров сейчас и изменение: минус — стало лучше, плюс — хуже.</p><div class="tscroll"><table class="tbl sm"><thead><tr><th>Менеджер</th><th class="r">Сейчас</th><th class="r">За неделю</th><th class="r">За 4 недели</th></tr></thead><tbody>${M.map(r=>`<tr><td><b>${esc(r.m)}</b></td><td class="r">${r.now}</td><td class="r">${dl(r.d1)}</td><td class="r">${dl(r.d4)}</td></tr>`).join('')}</tbody></table></div></div>`:''}`;
+  el.querySelector('#tr-x').onclick=()=>exportXLSX('Динамика_по_неделям_'+today()+'.xlsx',{'По неделям':[['Неделя с','Всего','Открыто','Закрыто','Нет в 1С'],...W.map(s=>[fmtD(s.wk),s.t,s.o,s.d,s.c1])],'По менеджерам':[['Менеджер','Сейчас','За неделю','За 4 недели'],...M.map(r=>[r.m,r.now,r.d1,r.d4])]});
+};
+HINTS.trend=['Динамика по неделям','График и таблицы: как меняется число открытых вопросов и кто из менеджеров «подтягивается». Данные берутся из ежедневных снимков.'];
+
+/* ---- 5. Похожие договоры ---- */
+function lev1(a,b){ // true, если строки отличаются ровно одним знаком (замена/вставка/удаление)
+  if(a===b)return false;const la=a.length,lb=b.length;if(Math.abs(la-lb)>1)return false;let i=0;while(i<la&&i<lb&&a[i]===b[i])i++;
+  if(la===lb)return a.slice(i+1)===b.slice(i+1);
+  return la>lb?a.slice(i+1)===b.slice(i):b.slice(i+1)===a.slice(i);
+}
+const SIM_L={same_date:['Одна дата, разные номера','warn'],typo:['Номера отличаются одним знаком','bad'],same_num:['Тот же номер, дата другая','warn']};
+function simPairs(all){
+  const from=ST.settings.from||2022;const G=new Map();
+  for(const c of CON){if(c.k!=='o'||c.y==null||c.y<from)continue;const k=c.inn||cpk(c.cp);if(!k)continue;if(!G.has(k))G.set(k,[]);G.get(k).push(c)}
+  const out=[];const dd=(a,b)=>Math.abs((new Date(a+'T00:00:00')-new Date(b+'T00:00:00'))/864e5);
+  for(const L of G.values()){
+    if(L.length<2||L.length>80)continue;
+    for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){
+      const a=L[i],b=L[j];const na=nzk(nn(a.num)),nb=nzk(nn(b.num));if(!na||!nb)continue;
+      let why=null;
+      if(na===nb){if(a.date&&b.date&&a.date!==b.date&&dd(a.date,b.date)<=62)why='same_num'}
+      else if(a.date&&b.date&&a.date===b.date)why='same_date';
+      else if(na.length>=4&&lev1(na,nb)&&(!a.date||!b.date||dd(a.date,b.date)<=62))why='typo';
+      if(!why)continue;
+      const pk='sim|'+[a.key,b.key].sort().join('||');
+      const hidden=!!(ST.dupok[pk]&&ST.dupok[pk].s);
+      if(hidden&&!all)continue;
+      out.push({a,b,why,pk,hidden});
+    }
+  }
+  return out.sort((x,y)=>(x.why==='typo'?0:1)-(y.why==='typo'?0:1)||x.a.cp.localeCompare(y.a.cp,'ru'));
+}
+V.similar=function(el){
+  const F=V.similar.F=V.similar.F||{t:'all',q:'',h:false};
+  const all=simPairs(true);const open=all.filter(p=>!p.hidden);
+  el.innerHTML=`<div class="pghead"><div><h1>Похожие договоры</h1><p class="muted">Пары договоров у одного контрагента, которые могут оказаться одним и тем же договором, записанным дважды (опечатка в номере, разные номера в один день). Если это разные договоры — нажмите «Не дубль», пара скроется.</p></div><div class="row"><button class="btn" id="sm-x">${ic('dl',16)} Excel</button></div></div>
+  <div class="card"><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:8px"><span class="seg" id="sm-t">${[['all','Все'],...Object.entries(SIM_L).map(([k,v])=>[k,v[0]])].map(([k,l])=>`<button data-t="${k}" class="${F.t===k?'on':''}">${l}</button>`).join('')}</span><input class="inp" id="sm-q" placeholder="Поиск по контрагенту или номеру" value="${esc(F.q)}" style="min-width:240px"><label class="sw"><input type="checkbox" id="sm-h" ${F.h?'checked':''}><span>показать скрытые (${all.length-open.length})</span></label></div><div id="sm-r"></div></div>`;
+  const paint=()=>{const q=F.q.trim().toLowerCase();const L=all.filter(p=>(F.h||!p.hidden)&&(F.t==='all'||p.why===F.t)&&(!q||(p.a.cp+' '+p.a.num+' '+p.b.num).toLowerCase().includes(q)));
+    const side=c=>`<a data-ck="${esc(c.key)}"><b class="mono">${esc(c.num)}</b></a> от ${fmtD(c.date)||'—'}<div class="muted sm">${esc(mgrLabel(c)||'менеджер не указан')}</div>`;
+    el.querySelector('#sm-r').innerHTML=L.length?`<div class="tscroll"><table class="tbl"><thead><tr><th>Контрагент</th><th>Договор 1</th><th>Договор 2</th><th>Почему похожи</th><th></th></tr></thead><tbody>${L.slice(0,200).map(p=>`<tr data-pk="${esc(p.pk)}"><td class="cpn"><b>${esc(p.a.cp)}</b></td><td>${side(p.a)}</td><td>${side(p.b)}</td><td>${pill(SIM_L,p.why)}</td><td>${p.hidden?`<button class="btn sm" data-v="0">Вернуть</button>`:`<button class="btn sm" data-v="1">Не дубль</button>`}</td></tr>`).join('')}</tbody></table></div>${L.length>200?`<p class="muted sm">Показано 200 из ${L.length}.</p>`:''}`:'<p class="muted">Похожих договоров не найдено 🎉</p>';
+    el.querySelectorAll('#sm-r tr[data-pk]').forEach(tr=>{tr.querySelectorAll('[data-ck]').forEach(a=>a.onclick=()=>openContract(a.dataset.ck));
+      tr.querySelector('[data-v]').onclick=e=>{const on=e.target.dataset.v==='1';ST.dupok={...ST.dupok,[tr.dataset.pk]:{s:on,ts:nowTs()}};touch();V.similar(el)}})};
+  paint();
+  el.querySelectorAll('#sm-t button').forEach(b=>b.onclick=()=>{F.t=b.dataset.t;V.similar(el)});
+  el.querySelector('#sm-q').oninput=debounce(e=>{F.q=e.target.value;paint()},200);
+  el.querySelector('#sm-h').onchange=e=>{F.h=e.target.checked;V.similar(el)};
+  el.querySelector('#sm-x').onclick=()=>exportXLSX('Похожие_договоры_'+today()+'.xlsx',{'Похожие договоры':[['Контрагент','№ 1','Дата 1','Менеджер 1','№ 2','Дата 2','Менеджер 2','Почему похожи'],...open.map(p=>[p.a.cp,p.a.num,fmtD(p.a.date),mgrLabel(p.a),p.b.num,fmtD(p.b.date),mgrLabel(p.b),SIM_L[p.why][0]])]});
+};
+HINTS.similar=['Похожие договоры','Пары договоров одного контрагента с почти одинаковым номером или одной датой: возможно, один и тот же договор записан дважды.'];
+
+/* ---- 6. Проверка перед отправкой ---- */
+function preSend(spec){
+  const W=[];
+  const sc=CON.filter(c=>c.k==='o'&&inScope(c));
+  try{const n=mgrCheckCount();if(n)W.push({tone:'warn',t:`У ${n} ${plural(n,'договора','договоров','договоров')} нет решения по менеджеру (расхождение с 1С или менеджер не указан) — они попадут в файл не к тому, кому нужно, или в «Не указан». Разберите на странице «Менеджеры → Что проверить».`})}catch(e){}
+  try{const odd=managers().filter(m=>m!=='Не указан'&&!mrMain(m)&&(KPI.byMgr[m]?.open||0)>0);if(odd.length)W.push({tone:'warn',t:`Нестандартные записи в колонке «Менеджер»: ${odd.slice(0,5).join(', ')}${odd.length>5?' и ещё '+(odd.length-5):''}. Это не похоже на отдельного менеджера — проверьте написание.`})}catch(e){}
+  try{if(C1.length&&sc.length){const found=sc.filter(c=>c.c1&&!['nocp','none'].includes(c.c1)).length;const p=found/sc.length;if(p<.4)W.push({tone:'bad',t:`В 1С найдено только ${Math.round(p*100)}% договоров из Описи. Возможно, загружена не та выгрузка 1С. Проверьте перед отправкой.`})}}catch(e){}
+  try{if(['allm','rep','alla'].includes(spec.id)){const r=sc.filter(c=>{const m=markOf(c);return m&&(m.s==='done'||m.s==='skip')}).length;if(r)W.push({tone:'info',t:`В файл войдут и ${r} ${plural(r,'договор','договора','договоров')}, которые вы отметили «Готово» или «Не нужно».`})}}catch(e){}
+  try{const nd=sc.filter(c=>!c.date).length;if(nd&&mgFloor())W.push({tone:'info',t:`${nd} ${plural(nd,'договор','договора','договоров')} без даты в Описи включены в файл независимо от периода.`})}catch(e){}
+  try{const ov=sc.filter(c=>isOpen(c)&&issueAge(c)>slaLimit()).length;if(ov)W.push({tone:'info',t:`Из открытых вопросов ${ov} висят дольше ${slaLimit()} дней — можно отправить как напоминание.`})}catch(e){}
+  return W;
+}
+{const _go=expGo;expGo=function(spec){
+  _go(spec);
+  try{if(spec.g!=='mgr'&&spec.g!=='boss')return;
+    const W=(mgFloor()?withFloor(()=>preSend(spec)):preSend(spec));if(!W.length)return;
+    const mdl=document.querySelector('#modal');const row=mdl&&mdl.querySelector('#ex-go');if(!row)return;
+    const box=document.createElement('div');box.style.marginTop='10px';
+    box.innerHTML=`<div class="callout ${W.some(x=>x.tone==='bad')?'bad':W.some(x=>x.tone==='warn')?'warn':''}"><b>Проверка перед отправкой</b>${W.map(x=>`<p class="sm">${x.tone==='bad'?'⛔ ':x.tone==='warn'?'⚠ ':'ℹ '}${esc(x.t)}</p>`).join('')}</div>`;
+    row.parentNode.parentNode.insertBefore(box,row.parentNode);
+  }catch(e){console.error(e)}
+}}
+
+/* ---- 7. Встраивание в выгрузки, «Сегодня», менеджеров ---- */
+{const _ei=expItems;expItems=function(){
+  const a=_ei();const at=(id)=>{const i=a.findIndex(x=>x.id===id);return i<0?a.length:i+1};
+  a.splice(at('rep'),0,{g:'mgr',id:'mail',title:'Письма менеджерам — готовый текст',desc:'Текст письма по каждому менеджеру: что завести в 1С и что проверить. Можно поправить, скопировать или открыть в почте. СХЭД в письмах не упоминается.',need:['opis','c1'],count:()=>c1Debt().rows.length,countText:n=>n+' '+plural(n,'договор','договора','договоров')+' в письмах',run:()=>mailModal({kind:'mgr'})});
+  a.splice(at('c1b'),0,{g:'boss',id:'mailb',title:'Письмо главбуху — готовый текст',desc:'Сводка для главбуха: сколько договоров нет в 1С и у кого. Excel с подробностями — из пункта выше.',need:['opis','c1'],count:()=>c1Debt().rows.length,countText:n=>n+' '+plural(n,'договор','договора','договоров'),run:()=>mailModal({kind:'boss'})});
+  a.push({g:'me',id:'terms',title:'Сроки договоров',desc:'Договоры, срок которых («Действует по» в 1С) истёк или скоро истечёт.',need:['opis','c1'],count:()=>termRows().rows.filter(r=>r.cls==='ended'||r.cls==='soon').length,countText:n=>n+' '+plural(n,'договор','договора','договоров'),run:()=>termsExcel()});
+  a.push({g:'me',id:'sim',title:'Похожие договоры',desc:'Пары договоров одного контрагента, которые могут быть дублями.',need:['opis'],count:()=>simPairs(false).length,countText:n=>n+' '+plural(n,'пара','пары','пар'),run:()=>{const P=simPairs(false);return exportXLSX('Похожие_договоры_'+today()+'.xlsx',{'Похожие договоры':[['Контрагент','№ 1','Дата 1','№ 2','Дата 2','Почему похожи'],...P.map(p=>[p.a.cp,p.a.num,fmtD(p.a.date),p.b.num,fmtD(p.b.date),SIM_L[p.why][0]])]})}});
+  return a;
+}}
+
+/* ===== feat5: перенос отметок при исправлении дат в Описи ===== */
+function migrateKeys(newRows){
+  const dpart=k=>k.slice(k.lastIndexOf('|')+1),ppart=k=>k.slice(0,k.lastIndexOf('|'));
+  const oldKeys=new Set(CON.filter(c=>c.k==='o').map(c=>c.key));
+  const newKeys=newRows.map(r=>ckey({num:r.num,cp:r.cp,date:r.date}));const newSet=new Set(newKeys);
+  const byP=new Map();for(const k of oldKeys){if(newSet.has(k))continue;const p=ppart(k);if(!byP.has(p))byP.set(p,[]);byP.get(p).push(k)}
+  const map=new Map();
+  for(const nk of newKeys){
+    if(oldKeys.has(nk))continue;const L=byP.get(ppart(nk));if(!L||!L.length)continue;
+    const nd=dpart(nk);const i=L.findIndex(k=>{const od=dpart(k);return od&&nd&&dayDiff(od,nd)<=1});
+    if(i>=0){map.set(L[i],nk);L.splice(i,1)}
+  }
+  if(!map.size)return 0;
+  for(const name of ['marks','seen','mgrfix','orig']){
+    const src=ST[name]||{};const out={...src};let ch=false;
+    for(const [o,n] of map){if(src[o]!==undefined&&src[n]===undefined){out[n]=src[o];delete out[o];ch=true}}
+    if(ch)ST[name]=out;
+  }
+  if(ST.debts)for(const m of Object.keys(ST.debts)){const d=ST.debts[m];if(d&&Array.isArray(d.keys))ST.debts[m]={...d,keys:d.keys.map(k=>map.get(k)||k)}}
+  logAct('Даты в Описи исправлены: перенесены отметки и решения по '+map.size+' договорам');
+  return map.size;
+}
 
 window.addEventListener('DOMContentLoaded',boot);
 
