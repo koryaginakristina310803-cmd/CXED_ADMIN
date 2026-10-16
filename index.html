@@ -543,10 +543,10 @@ function matchSource(contracts,recs){
 }
 
 /* ===== модель данных и вычисления ===== */
-const L1C={ok:['Есть в 1С','ok'],closed:['Закрыт в 1С','warn'],dup:['Дубль в 1С','warn'],generic:['Только «Основной договор»','warn'],datediff:['В 1С другая дата','warn'],numoth:['Номер у другого контрагента','warn'],cpdate:['В 1С другой номер','warn'],cpnodoc:['Нет в 1С (контрагент есть)','bad'],nocp:['Нет в 1С (контрагента нет)','bad'],none:['Нет в 1С','bad'],na:['вне периода','mute'],unk:['не сверено','mute']};
-const LSX={ok:['В СХЭД','ok'],part:['Не хватает приложений','warn'],arch:['В архиве, не в СХЭД','warn'],no:['Нет в СХЭД и в архивах','bad'],na:['вне периода','mute'],unk:['не сверено','mute']};
-const LSB={ok:['Есть в СБИС','ok'],datediff:['В СБИС другая дата','warn'],numoth:['Номер у другого','warn'],cpdate:['В СБИС другой номер','warn'],cpnodoc:['Нет в СБИС (контрагент есть)','bad'],nocp:['Нет в СБИС','bad'],generic:['Нет в СБИС','bad'],closed:['Есть в СБИС','ok'],dup:['Есть в СБИС','ok'],none:['Нет в СБИС','bad'],unk:['СБИС не загружен','mute'],na:['вне периода','mute']};
-const TODO1C={ok:'Ничего не требуется.',closed:'Договор закрыт в 1С — проверить, не нужно ли открыть.',dup:'В 1С есть дубль — оставить один.',generic:'Создать в 1С новый договор с номером и датой из описи («Основной договор» не менять).',datediff:'Номер совпал, дата другая — проверить дату.',numoth:'Номер есть у другого контрагента — проверить, не перепутан ли номер или контрагент.',cpdate:'Совпали контрагент и дата, номер другой — проверить номер.',cpnodoc:'Завести договор в 1С.',nocp:'Найти или завести контрагента в 1С, затем договор.',none:'Завести договор в 1С.'};
+const L1C={ok:['Есть в 1С','ok'],closed:['Закрыт в 1С','warn'],dup:['Дубль в 1С','warn'],generic:['Только «Основной договор»','warn'],datediff:['В 1С другая дата','warn'],numoth:['Номер у другого контрагента','warn'],cpdate:['В 1С другой номер','warn'],cpnodoc:['Нет в 1С (контрагент есть)','bad'],nocp:['Нет в 1С (контрагента нет)','bad'],none:['Нет в 1С','bad'],na:['вне периода','mute'],void:['Не действует','mute'],unk:['не сверено','mute']};
+const LSX={ok:['В СХЭД','ok'],part:['Не хватает приложений','warn'],arch:['В архиве, не в СХЭД','warn'],no:['Нет в СХЭД и в архивах','bad'],na:['вне периода','mute'],void:['Не действует','mute'],unk:['не сверено','mute']};
+const LSB={ok:['Есть в СБИС','ok'],datediff:['В СБИС другая дата','warn'],numoth:['Номер у другого','warn'],cpdate:['В СБИС другой номер','warn'],cpnodoc:['Нет в СБИС (контрагент есть)','bad'],nocp:['Нет в СБИС','bad'],generic:['Нет в СБИС','bad'],closed:['Есть в СБИС','ok'],dup:['Есть в СБИС','ok'],none:['Нет в СБИС','bad'],void:['Не действует','mute'],unk:['СБИС не загружен','mute'],na:['вне периода','mute']};
+const TODO1C={ok:'Ничего не требуется.',closed:'Договор закрыт в 1С — проверить, не нужно ли открыть.',dup:'В 1С есть дубль — оставить один.',generic:'Создать в 1С новый договор с номером и датой из описи («Основной договор» не менять).',datediff:'Номер совпал, дата другая — проверить дату.',numoth:'Номер есть у другого контрагента — проверить, не перепутан ли номер или контрагент.',cpdate:'Совпали контрагент и дата, номер другой — проверить номер.',cpnodoc:'Завести договор в 1С.',nocp:'Найти или завести контрагента в 1С, затем договор.',none:'Завести договор в 1С.',void:'Договор не действует (по Описи) — заводить и проверять не нужно.'};
 const WORK={todo:['К работе','info'],work:['В работе','warn'],done:['Готово','ok'],skip:['Не нужно','mute']};
 let MG1C=null,CON=[],CONMAP=new Map(),C1=[],SBIS=[],SXREC=[],DOCS=[],CPDOCS=null,KPI={};
 const BADMGR=/GMT[+-]\d{4}|^\d{4}-\d{2}-\d{2}|^\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4}$|^[A-Z][a-z]{2} [A-Z][a-z]{2} \d/;
@@ -573,11 +573,12 @@ function buildAll(){
   const archIdx=new Map();DOCS.forEach((d,i)=>{if(d[1].startsWith('Договор')){const k=nmk(d[3]);if(k){if(!archIdx.has(k))archIdx.set(k,[]);archIdx.get(k).push(i)}}});
   for(const c of CON){if(c.mgr&&BADMGR.test(String(c.mgr).trim())){c.mgrBad=String(c.mgr);c.mgr=''}c.key=ckey(c);CONMAP.set(c.key,c);c.sb=c.sb||'unk';c.m1=c.m1c||[];c.msb=[]}
   const opisC=CON.filter(c=>c.k==='o');
-  if(d1||uo){const r=matchSource(opisC,C1);for(const c of opisC){if(c.y!=null&&c.y<2022&&!uo)continue;const x=r.get(c.key);c.c1=x.code;c.m1c=x.m;c.todo1c=TODO1C[x.code]||''}}
+  if(d1||uo){const r=matchSource(opisC,C1);for(const c of opisC){if(c.y!=null&&c.y<2022&&!uo)continue;const x=r.get(c.key);c.c1=x.code;c.m1c=x.m;if(x.code!=='ok'&&origClass(c)==='void')c.c1='void';c.todo1c=TODO1C[c.c1]||''}}
   if(dsb){const r=matchSource(opisC,SBIS);for(const c of opisC){const x=r.get(c.key);c.sb=x.code;c.msb=x.m}}
   const docsFor=c=>(archIdx.get(nmk(c.num))||[]).filter(i=>{const d=DOCS[i];return aliasOf(cpk(d[2]),cpk(c.cp))>0||(aliasOf(cpk(d[2]),cpk(c.cp))===0&&cpmatchK(cpk(d[2]),cpk(c.cp)))||(c.date&&dateNear(d[4],c.date))});
   if(dsx||uo){const r=matchSource(opisC,SXREC);for(const c of opisC){if(c.y!=null&&c.y<2022)continue;const x=r.get(c.key);c.msx=['ok','closed','dup','datediff','cpdate'].includes(x.code)?x.m:[];const archFound=(c.docs&&c.docs.length)||docsFor(c).length;c.sx=x.code==='ok'||x.code==='closed'||x.code==='dup'||x.code==='datediff'?'ok':(archFound?'arch':'no')}}
   if(uo)for(const c of opisC){c.docs=docsFor(c)}
+  for(const c of opisC)if(origClass(c)==='void'){c.sx='void';c.sb='void';if(c.c1!=='ok')c.c1='void';c.todo1c=TODO1C[c.c1]||''}   // «Оригинал: не действует» — договор не проверяем ни в 1С, ни в СХЭД, ни в СБИС
   MG1C=null;for(const c of opisC)c.mgrOpis=c.mgr||'';
   {let mrows=ST.uploads.mgr1c?ST.uploads.mgr1c.rows:null;
    if(!mrows&&ST.uploads.c1&&C1.some(r=>r.mgr)){const from=ST.settings.from||2022;mrows=C1.filter(r=>(!r.org||/техностайл/i.test(r.org))&&(!r.date||+String(r.date).slice(0,4)>=from)).map((r,i)=>({i,num:r.num,name:r.name,cp:r.cp,inn:r.inn,date:r.date,state:r.state,generic:r.generic,mgr:r.mgr}))}
@@ -849,10 +850,11 @@ const isResolved=c=>{const m=markOf(c);return !!(m&&(m.s==='done'||m.s==='skip')
 const isOpen=c=>inScope(c)&&gapsOf(c).length>0&&!isResolved(c);
 
 /* ---------- 1. бумажные оригиналы ---------- */
-const ORIG_L={ok:['Оригинал есть','ok'],scan:['Только скан','bad'],ours:['Нами не подписан','bad'],theirs:['Не подписан контрагентом','bad'],none:['Оригинала нет','bad'],typo:['Проверить запись в описи','warn'],empty:['Не указано','warn']};
+const ORIG_L={ok:['Оригинал есть','ok'],scan:['Только скан','bad'],ours:['Нами не подписан','bad'],theirs:['Не подписан контрагентом','bad'],none:['Оригинала нет','bad'],void:['Не действует','mute'],typo:['Проверить запись в описи','warn'],empty:['Не указано','warn']};
 function origClass(c){
   const s=String(c.orig||'').trim().toLowerCase();
   if(!s)return 'empty';
+  if(/не\s*действ|недействит/.test(s))return 'void';
   if(/скан|копия/.test(s))return 'scan';
   if(/нами не подпис|нет нашей|не подписан нами/.test(s))return 'ours';
   if(/не подписан/.test(s))return 'theirs';
@@ -865,7 +867,7 @@ function origRows(all){
   const out=[];
   for(const c of CON){
     if(c.k!=='o')continue;if(!all&&!inScope(c))continue;
-    const cls=origClass(c);if(cls==='ok')continue;
+    const cls=origClass(c);if(cls==='ok'||cls==='void')continue;
     out.push({c,cls,q:ST.orig[c.key]||null});
   }
   return out;
@@ -5689,7 +5691,7 @@ function preSend(spec){
   const sc=CON.filter(c=>c.k==='o'&&inScope(c));
   try{const n=mgrCheckCount();if(n)W.push({tone:'warn',t:`У ${n} ${plural(n,'договора','договоров','договоров')} нет решения по менеджеру (расхождение с 1С или менеджер не указан) — они попадут в файл не к тому, кому нужно, или в «Не указан». Разберите на странице «Менеджеры → Что проверить».`})}catch(e){}
   try{const odd=managers().filter(m=>m!=='Не указан'&&!mrMain(m)&&(KPI.byMgr[m]?.open||0)>0);if(odd.length)W.push({tone:'warn',t:`В колонке «Менеджер» вместо фамилии записано: ${odd.slice(0,5).map(x=>'«'+x+'»').join(', ')}${odd.length>5?' и ещё '+(odd.length-5):''}. Это пометка, дата или опечатка, а не фамилия — исправьте в Описи или назначьте менеджера в «Что проверить».`})}catch(e){}
-  try{if(C1.length&&sc.length){const found=sc.filter(c=>c.c1&&!['nocp','none'].includes(c.c1)).length;const p=found/sc.length;if(p<.4)W.push({tone:'bad',t:`В 1С найдено только ${Math.round(p*100)}% договоров из Описи. Возможно, загружена не та выгрузка 1С. Проверьте перед отправкой.`})}}catch(e){}
+  try{if(C1.length&&sc.length){const sc2=sc.filter(c=>c.c1!=='void'),found=sc2.filter(c=>c.c1&&!['nocp','none'].includes(c.c1)).length;const p=found/(sc2.length||1);if(p<.4)W.push({tone:'bad',t:`В 1С найдено только ${Math.round(p*100)}% договоров из Описи. Возможно, загружена не та выгрузка 1С. Проверьте перед отправкой.`})}}catch(e){}
   try{if(['allm','rep','alla'].includes(spec.id)){const r=sc.filter(c=>{const m=markOf(c);return m&&(m.s==='done'||m.s==='skip')}).length;if(r)W.push({tone:'info',t:`В файл войдут и ${r} ${plural(r,'договор','договора','договоров')}, которые вы отметили «Готово» или «Не нужно».`})}}catch(e){}
   try{const nd=sc.filter(c=>!c.date).length;if(nd&&mgFloor())W.push({tone:'info',t:`${nd} ${plural(nd,'договор','договора','договоров')} без даты в Описи включены в файл независимо от периода.`})}catch(e){}
   try{const ov=sc.filter(c=>isOpen(c)&&issueAge(c)>slaLimit()).length;if(ov)W.push({tone:'info',t:`Из открытых вопросов ${ov} висят дольше ${slaLimit()} дней — можно отправить как напоминание.`})}catch(e){}
