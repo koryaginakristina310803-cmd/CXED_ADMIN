@@ -492,10 +492,12 @@ function numFromName(name){const t=String(name||'').trim();if(!t||/^основн
   let m=t.match(/(?:№|\bNo\.?)\s*([^\s,;()]+)/i)||t.match(/^(?:договор|контракт|соглашение|дополнительное соглашение|спецификация|счет-договор|счёт-договор)[а-я]*\s+(?:поставки\s+|подряда\s+|купли-продажи\s+|на\s+\S+\s+)?([^\s,;()]*\d[^\s,;()]*)\s+от\s/i);
   if(!m)return null;const num=m[1].replace(/^[.,;:()]+|[.,;:()]+$/g,'');if(!/\d/.test(num))return null;
   const dm=t.match(/от\s*(\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4})/i);return{num,date:dm?parseDate(dm[1]):''}}
+const NONUM_RE=/^(б[\/\\.\-]н\.?|бн|без\s*номера)(?=$|[\s,;(])/i;   // «б/н», «б.н.», «без номера» — у договора просто нет номера
+const isNoNum=s=>NONUM_RE.test(String(s??'').trim().toLowerCase().replace(/ё/g,'е'));
 function buildIndex(recs){
   const idx={byk:new Map(),byck:new Map(),names:[]};
   for(const c of recs){
-    c.k=c.generic?'':nmk(c.num);c.ck=cpk(c.cp);c.tk=toks(c.cp);
+    c.nonum=!c.generic&&isNoNum(c.num);c.k=(c.generic||c.nonum)?'':nmk(c.num);c.ck=cpk(c.cp);c.tk=toks(c.cp);
     if(c.generic&&!c.k&&c.name){const e=numFromName(c.name);if(e){c.k=nmk(e.num);if(e.date&&!c._dn){c.date=e.date;c._dn=1}}}   // «Договор 010322-У от 01.03.2022г» без номера в колонке
     if(c.name&&c._nd===undefined)c._nd=dateFromName(c.name);
     if(c.k){if(!idx.byk.has(c.k))idx.byk.set(c.k,[]);idx.byk.get(c.k).push(c);idx.names.push([nzk(nn((c.name||'').replace(DRE,' '))),c])}
@@ -510,7 +512,15 @@ const aliasOf=(ka,kb)=>{if(!ka||!kb||ka===kb||(!ALIAS.same.size&&!ALIAS.diff.siz
 function sameCp(x,c,tkx,ckx){const al=aliasOf(ckx,c.ck);if(al)return al>0;return (x.inn&&c.inn&&x.inn===c.inn)||tokmatch(tkx,c.tk)||cpmatchK(ckx,c.ck)||(!!x.cp&&!!c.cp&&fioMatch(x.cp,c.cp))}
 const dayDiff=(a,b)=>Math.abs((Date.parse(a+'T00:00:00Z')-Date.parse(b+'T00:00:00Z'))/864e5);
 const dateNear=(a,b)=>!!a&&!!b&&dayDiff(a,b)<=1;   // даты в Описи и 1С могут отличаться на сутки (часовой пояс при чтении Excel)
-function matchOne(x,idx,tkx,ckx,kx){
+function matchOne(x,idx,tkx,ckx,kx,nonumFlag){
+  if(isNoNum(x.num)){   // договор без номера: по номеру не ищем (иначе он «совпадёт» с чужими б/н), смотрим контрагента и дату
+    const mk0=(x.inn||'')+'|'+(x.cp||'')+'|'+ckx;const SM0=idx._same||(idx._same=new Map());let same0=SM0.get(mk0);if(!same0){same0=(idx.all||[]).filter(c=>sameCp(x,c,tkx,ckx));SM0.set(mk0,same0)}
+    if(!same0.length)return{code:'nocp',m:[]};
+    const sd0=same0.filter(c=>!c.generic&&(dateNear(c.date,x.date)||dateNear(c._nd,x.date)));
+    if(sd0.length)return sd0.some(c=>c.nonum)?{code:'ok',m:sd0.map(c=>c.i)}:{code:'cpdate',m:sd0.map(c=>c.i)};
+    if(nonumFlag)return{code:'nonum',m:[]};
+    return same0.every(c=>c.generic)?{code:'generic',m:same0.map(c=>c.i)}:{code:'cpnodoc',m:[]};
+  }
   // кандидаты по номеру
   let cand=kx?[...(idx.byk.get(kx)||[])]:[];
   if(kx&&kx.length>=5){for(const[nm,c]of idx.names)if(nm.includes(kx)&&!cand.includes(c))cand.push(c)}
@@ -533,20 +543,20 @@ function matchOne(x,idx,tkx,ckx,kx){
   }
   return{code:'nocp',m:[]};
 }
-function matchSource(contracts,recs){
+function matchSource(contracts,recs,nonumFlag){
   const idx=buildIndex(recs);const res=new Map();
   for(const x of contracts){
     const kx=nmk(x.num);const tk=toks(x.cp),ck=cpk(x.cp);
-    res.set(x.key,matchOne(x,idx,tk,ck,kx));
+    res.set(x.key,matchOne(x,idx,tk,ck,kx,nonumFlag));
   }
   return res;
 }
 
 /* ===== модель данных и вычисления ===== */
-const L1C={ok:['Есть в 1С','ok'],closed:['Закрыт в 1С','warn'],dup:['Дубль в 1С','warn'],generic:['Только «Основной договор»','warn'],datediff:['В 1С другая дата','warn'],numoth:['Номер у другого контрагента','warn'],cpdate:['В 1С другой номер','warn'],cpnodoc:['Нет в 1С (контрагент есть)','bad'],nocp:['Нет в 1С (контрагента нет)','bad'],none:['Нет в 1С','bad'],na:['вне периода','mute'],void:['Не действует','mute'],unk:['не сверено','mute']};
+const L1C={ok:['Есть в 1С','ok'],closed:['Закрыт в 1С','warn'],dup:['Дубль в 1С','warn'],generic:['Только «Основной договор»','warn'],datediff:['В 1С другая дата','warn'],numoth:['Номер у другого контрагента','warn'],cpdate:['В 1С другой номер','warn'],nonum:['Договор без номера — проверить','warn'],cpnodoc:['Нет в 1С (контрагент есть)','bad'],nocp:['Нет в 1С (контрагента нет)','bad'],none:['Нет в 1С','bad'],na:['вне периода','mute'],void:['Не действует','mute'],unk:['не сверено','mute']};
 const LSX={ok:['В СХЭД','ok'],part:['Не хватает приложений','warn'],arch:['В архиве, не в СХЭД','warn'],no:['Нет в СХЭД и в архивах','bad'],na:['вне периода','mute'],void:['Не действует','mute'],unk:['не сверено','mute']};
 const LSB={ok:['Есть в СБИС','ok'],datediff:['В СБИС другая дата','warn'],numoth:['Номер у другого','warn'],cpdate:['В СБИС другой номер','warn'],cpnodoc:['Нет в СБИС (контрагент есть)','bad'],nocp:['Нет в СБИС','bad'],generic:['Нет в СБИС','bad'],closed:['Есть в СБИС','ok'],dup:['Есть в СБИС','ok'],none:['Нет в СБИС','bad'],void:['Не действует','mute'],unk:['СБИС не загружен','mute'],na:['вне периода','mute']};
-const TODO1C={ok:'Ничего не требуется.',closed:'Договор закрыт в 1С — проверить, не нужно ли открыть.',dup:'В 1С есть дубль — оставить один.',generic:'Создать в 1С новый договор с номером и датой из описи («Основной договор» не менять).',datediff:'Номер совпал, дата другая — проверить дату.',numoth:'Номер есть у другого контрагента — проверить, не перепутан ли номер или контрагент.',cpdate:'Совпали контрагент и дата, номер другой — проверить номер.',cpnodoc:'Завести договор в 1С.',nocp:'Найти или завести контрагента в 1С, затем договор.',none:'Завести договор в 1С.',void:'Договор не действует (по Описи) — заводить и проверять не нужно.'};
+const TODO1C={ok:'Ничего не требуется.',closed:'Договор закрыт в 1С — проверить, не нужно ли открыть.',dup:'В 1С есть дубль — оставить один.',generic:'Создать в 1С новый договор с номером и датой из описи («Основной договор» не менять).',datediff:'Номер совпал, дата другая — проверить дату.',numoth:'Номер есть у другого контрагента — проверить, не перепутан ли номер или контрагент.',cpdate:'Совпали контрагент и дата, номер другой — проверить номер.',cpnodoc:'Завести договор в 1С.',nonum:'Договор без номера (б/н): в 1С у этого контрагента нет договора с такой датой. Это не ошибка — просто перепроверьте вручную по контрагенту и дате.',nocp:'Найти или завести контрагента в 1С, затем договор.',none:'Завести договор в 1С.',void:'Договор не действует (по Описи) — заводить и проверять не нужно.'};
 const WORK={todo:['К работе','info'],work:['В работе','warn'],done:['Готово','ok'],skip:['Не нужно','mute']};
 let MG1C=null,CON=[],CONMAP=new Map(),C1=[],SBIS=[],SXREC=[],DOCS=[],CPDOCS=null,KPI={};
 const BADMGR=/GMT[+-]\d{4}|^\d{4}-\d{2}-\d{2}|^\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4}$|^[A-Z][a-z]{2} [A-Z][a-z]{2} \d/;
@@ -573,7 +583,7 @@ function buildAll(){
   const archIdx=new Map();DOCS.forEach((d,i)=>{if(d[1].startsWith('Договор')){const k=nmk(d[3]);if(k){if(!archIdx.has(k))archIdx.set(k,[]);archIdx.get(k).push(i)}}});
   for(const c of CON){if(c.mgr&&BADMGR.test(String(c.mgr).trim())){c.mgrBad=String(c.mgr);c.mgr=''}c.key=ckey(c);CONMAP.set(c.key,c);c.sb=c.sb||'unk';c.m1=c.m1c||[];c.msb=[]}
   const opisC=CON.filter(c=>c.k==='o');
-  if(d1||uo){const r=matchSource(opisC,C1);for(const c of opisC){if(c.y!=null&&c.y<2022&&!uo)continue;const x=r.get(c.key);c.c1=x.code;c.m1c=x.m;if(x.code!=='ok'&&origClass(c)==='void')c.c1='void';c.todo1c=TODO1C[c.c1]||''}}
+  if(d1||uo){const r=matchSource(opisC,C1,true);for(const c of opisC){if(c.y!=null&&c.y<2022&&!uo)continue;const x=r.get(c.key);c.c1=x.code;c.m1c=x.m;if(x.code!=='ok'&&origClass(c)==='void')c.c1='void';c.todo1c=TODO1C[c.c1]||''}}
   if(dsb){const r=matchSource(opisC,SBIS);for(const c of opisC){const x=r.get(c.key);c.sb=x.code;c.msb=x.m}}
   const docsFor=c=>(archIdx.get(nmk(c.num))||[]).filter(i=>{const d=DOCS[i];return aliasOf(cpk(d[2]),cpk(c.cp))>0||(aliasOf(cpk(d[2]),cpk(c.cp))===0&&cpmatchK(cpk(d[2]),cpk(c.cp)))||(c.date&&dateNear(d[4],c.date))});
   if(dsx||uo){const r=matchSource(opisC,SXREC);for(const c of opisC){if(c.y!=null&&c.y<2022)continue;const x=r.get(c.key);c.msx=['ok','closed','dup','datediff','cpdate'].includes(x.code)?x.m:[];const archFound=(c.docs&&c.docs.length)||docsFor(c).length;c.sx=x.code==='ok'||x.code==='closed'||x.code==='dup'||x.code==='datediff'?'ok':(archFound?'arch':'no')}}
@@ -630,7 +640,7 @@ function docsByCp(){
 }
 /* присутствие по источникам для «всё вместе»: 1 есть, 2 частично, 0 нет, null не применимо */
 function presence(c){
-  const m1={ok:1,closed:1,dup:1,generic:2,datediff:2,cpdate:2,numoth:2,cpnodoc:0,nocp:0,none:0};
+  const m1={ok:1,closed:1,dup:1,generic:2,datediff:2,cpdate:2,numoth:2,nonum:2,cpnodoc:0,nocp:0,none:0};
   const ms={ok:1,part:2,arch:2,no:0};
   const mb={ok:1,closed:1,dup:1,datediff:2,cpdate:2,numoth:2,cpnodoc:0,nocp:0,generic:0,none:0};
   const o=c.k==='o';
@@ -670,7 +680,7 @@ function applyMgr1c(opisC,recs){
   for(const c of sc){
     c.mgrOpis=c.mgr||'';
     const x=res.get(c.key);
-    if(!['ok','closed','dup','datediff','cpdate','generic'].includes(x.code)){c.mgrWhy=x.code==='nocp'?'контрагента нет в 1С':x.code==='numoth'?'номер у другого контрагента':'договора нет в 1С';G.none.push(c);continue}
+    if(!['ok','closed','dup','datediff','cpdate','generic','nonum'].includes(x.code)){c.mgrWhy=x.code==='nocp'?'контрагента нет в 1С':x.code==='numoth'?'номер у другого контрагента':'договора нет в 1С';G.none.push(c);continue}
     const L=x.m.map(i=>recs[i]).filter(r=>r&&!bad(r.mgr));
     if(!L.length){c.mgrWhy='в 1С менеджер не указан или «Администратор»';G.none.push(c);continue}
     G.found++;
@@ -786,7 +796,7 @@ function buildReg(){
   /* ---- договоры ---- */
   {
     const O=on('dog');const items=[];
-    const m1={ok:1,closed:2,dup:2,generic:2,datediff:2,cpdate:2,numoth:2,cpnodoc:0,nocp:0,none:0};
+    const m1={ok:1,closed:2,dup:2,generic:2,datediff:2,cpdate:2,numoth:2,nonum:2,cpnodoc:0,nocp:0,none:0};
     const ms={ok:1,part:2,arch:0,no:0};
     const mb={ok:1,closed:2,dup:2,datediff:2,cpdate:2,numoth:2,cpnodoc:0,nocp:0,generic:0,none:0};
     for(const c of CON){
@@ -1437,7 +1447,7 @@ async function buildZip(fileName,items,extra,progress,dir){
 const XL_ESC=s=>String(s).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F￾￿]/g,'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const XL_COL=n=>{let s='';n++;while(n>0){const m=(n-1)%26;s=String.fromCharCode(65+m)+s;n=Math.floor((n-1)/26)}return s};
 /* индексы стилей (см. styles.xml ниже) */
-const XS={okc:17,warnc:18,badc:19,infoc:20,mutec:21,def:0,title:1,sub:2,hdr:3,body:4,zebra:5,num:6,numz:7,ok:8,warn:9,bad:10,info:11,mute:12,sect:13,total:14,lab:15,note:16};
+const XS={okc:17,warnc:18,badc:19,infoc:20,mutec:21,def:0,title:1,sub:2,hdr:3,body:4,zebra:5,num:6,numz:7,ok:8,warn:9,bad:10,info:11,mute:12,sect:13,total:14,lab:15,note:16,unl:22,unlz:23};
 const XL_TAB={ok:'2F8F5B',warn:'B77A14',bad:'C0463E',info:'3F69A8',main:'2C7A6B',mute:'93A0AF'};
 function xlStyles(){
   const fonts=[['1D2733',0,0,10],['1F5F53',1,0,16],['6C7787',0,1,10],['FFFFFF',1,0,10],['2F8F5B',1,0,10],['B77A14',1,0,10],['C0463E',1,0,10],['3F69A8',1,0,10],['6C7787',1,0,10],['1F5F53',1,0,11],['1D2733',1,0,10]];
@@ -1445,7 +1455,7 @@ function xlStyles(){
   /* fills: 0 none, 1 gray125 – обязательные; далее наши с индекса 2 */
   const F=k=>({none:0,sect:2,zeb:3,acc:4,ok:5,warn:6,bad:7,info:8,mute:9})[k];
   const border=(c)=>`<border><left style="thin"><color rgb="FF${c}"/></left><right style="thin"><color rgb="FF${c}"/></right><top style="thin"><color rgb="FF${c}"/></top><bottom style="thin"><color rgb="FF${c}"/></bottom><diagonal/></border>`;
-  const xf=(font,fill,bd,h,v,wrap)=>`<xf numFmtId="0" fontId="${font}" fillId="${F(fill)}" borderId="${bd}" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment ${h?`horizontal="${h}" `:''}vertical="${v||'top'}"${wrap?' wrapText="1"':''}/></xf>`;
+  const xf=(font,fill,bd,h,v,wrap,unl)=>`<xf numFmtId="0" fontId="${font}" fillId="${F(fill)}" borderId="${bd}" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"${unl?' applyProtection="1"':''}><alignment ${h?`horizontal="${h}" `:''}vertical="${v||'top'}"${wrap?' wrapText="1"':''}/>${unl?'<protection locked="0"/>':''}</xf>`;
   const xfs=[
     xf(0,'none',0,'', 'top',0),            // 0 def
     xf(1,'none',0,'', 'center',0),         // 1 title
@@ -1464,7 +1474,8 @@ function xlStyles(){
     xf(10,'mute',2,'', 'center',0),        // 14 total
     xf(10,'none',1,'', 'top',1),           // 15 lab
     xf(0,'none',0,'', 'top',1),            // 16 note (текст без рамки с переносом)
-    xf(4,'ok',1,'center','top',1),xf(5,'warn',1,'center','top',1),xf(6,'bad',1,'center','top',1),xf(7,'info',1,'center','top',1),xf(8,'mute',1,'center','top',1) // 17-21 те же, по центру (числа)
+    xf(4,'ok',1,'center','top',1),xf(5,'warn',1,'center','top',1),xf(6,'bad',1,'center','top',1),xf(7,'info',1,'center','top',1),xf(8,'mute',1,'center','top',1), // 17-21 те же, по центру (числа)
+    xf(0,'none',1,'', 'top',1,1),xf(0,'zeb',1,'', 'top',1,1) // 22-23 незащищённые ячейки (для записи менеджерами): обычная и зебра
   ];
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">`+
   `<fonts count="${fonts.length}">${fonts.map(([c,b,i,s])=>`<font>${b?'<b/>':''}${i?'<i/>':''}<sz val="${s}"/><color rgb="FF${c}"/><name val="Calibri"/><family val="2"/></font>`).join('')}</fonts>`+
@@ -1536,6 +1547,7 @@ function xlSheetXml(rows,o){
         else if(typeof v==='number')s=z?XS.numz:XS.num;
         else s=z?XS.zebra:XS.body;
         if(o.labCol===j&&!t)s=XS.lab;
+        if(o.unlockCols&&o.unlockCols.includes(j))s=z?XS.unlz:XS.unl;
       }
       if(v==null||v===''){
         if(kind==='title'||kind==='sub'||kind==='note')continue;
@@ -1546,6 +1558,7 @@ function xlSheetXml(rows,o){
     x+=`</row>`;
   });
   x+=`</sheetData>`;
+  if(o.protect)x+=`<sheetProtection sheet="1" objects="1" scenarios="1" formatColumns="0" formatRows="0" sort="0" autoFilter="0"/>`;   // защита листа без пароля: правятся только незаблокированные ячейки
   if(hdr>=0&&o.filter!==false&&rows.length>hdr+1)x+=`<autoFilter ref="A${hdr+1}:${XL_COL(ncol-1)}${rows.length}"/>`;
   (o.merge||[]).forEach(()=>{});
   x+=`<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>`;
@@ -1565,7 +1578,7 @@ async function xlsxBuild(sheets,opts){
       if(typeof l==='string')rows.push(['',l]);
       else if(Array.isArray(l)){rows.push([l[0],l[1]]);if(l[2])tones[rows.length-1]=l[2]}
     });
-    list.push({name:nm('Как читать'),rows,o:{hdr:-1,plain:true,widths:[24,100],tab:XL_TAB.info,first:true,
+    list.push({name:nm('Как читать'),rows,o:{protect:!!opts.protect,hdr:-1,plain:true,widths:[24,100],tab:XL_TAB.info,first:true,
       tone:(v,i,j)=>j===0&&tones[i]?tones[i]:null,labCol:0}});
     /* строки readme без заголовка таблицы: оформляем вручную */
     list[0].o.hdr=-1;
@@ -1592,7 +1605,7 @@ async function xlsxBuild(sheets,opts){
       else if(r.length){const t=o.tone(r[0],i,0);if(r[0])cell(0,r[0],t?XS[t]:XS.lab);cell(1,r[1],XS.note)}
       x+=`</row>`;
     });
-    return x+`</sheetData><pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+    return x+`</sheetData>${o.protect?'<sheetProtection sheet="1" objects="1" scenarios="1"/>':''}<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.6" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/></worksheet>`;
   };
   list.forEach((l,i)=>parts.push(i===0&&opts.readme&&opts.readme.length?readmeXml(l.rows,l.o):xlSheetXml(l.rows,l.o)));
   const chunks=[];const z=new ZipOut({write:async u=>{chunks.push(u)},close:async()=>{}});
@@ -1634,7 +1647,7 @@ V.overviewOld=function(el){
   if(K.sxbad)todo.push([`${num(K.sxbad)} ${plural(K.sxbad,'договор','договора','договоров')} из описи нет ни в СХЭД, ни в архивах`,'Нужно найти файл и загрузить в СХЭД. Список по менеджерам — на вкладке «Менеджеры».','bad','#contracts',{sx:['no']}]);
   if(arch)todo.push([`${num(arch)} ${plural(arch,'договор','договора','договоров')} лежат в архивах, но не в СХЭД`,'Файл уже есть — осталось загрузить.','warn','#contracts',{sx:['arch']}]);
   if(K.c1bad)todo.push([`${num(K.c1bad)} ${plural(K.c1bad,'договор','договора','договоров')} нет в 1С`,'Завести договор (и контрагента, если его нет).','bad','#contracts',{c1:['cpnodoc','nocp','none']}]);
-  if(K.c1warn)todo.push([`${num(K.c1warn)} договоров в 1С требуют проверки`,'«Основной договор», другая дата, закрыт или дубль.','warn','#contracts',{c1:['generic','datediff','numoth','cpdate','closed','dup']}]);
+  if(K.c1warn)todo.push([`${num(K.c1warn)} договоров в 1С требуют проверки`,'«Основной договор», другая дата, закрыт или дубль.','warn','#contracts',{c1:['generic','datediff','numoth','nonum','cpdate','closed','dup']}]);
   if(!K.sbOn)todo.push(['Выгрузка из СБИС не загружена','Загрузите файл — и приложение покажет, каких договоров нет в СБИС.','info','#uploads',null]);
   else if(K.sbbad)todo.push([`${num(K.sbbad)} договоров нет в СБИС`,'Проверить, отправлены ли они через ЭДО.','bad','#contracts',{sb:['nocp','cpnodoc','none','generic']}]);
   if(origN)todo.push([`${num(origN)} ${plural(origN,'договор','договора','договоров')} без бумажного оригинала`,'Только скан или не подписан — запросите оригиналы.','warn','#ctrl/orig',null]);
@@ -1683,7 +1696,7 @@ V.overviewOld=function(el){
 /* ===== Договоры ===== */
 const CF0=()=>({q:'',y:[],mgr:[],kind:[],dir:[],c1:[],sx:[],sb:[],work:[],gap:[],all:false,sort:'date',dir_:-1,page:0,sel:new Set()});
 const QUICK=[['all','Все'],['gap','С пробелами'],['sxno','Нет в СХЭД и в архивах'],['sxarch','В архиве, не в СХЭД'],['c1no','Нет в 1С'],['c1chk','В 1С проверить'],['nomark','Без отметки']];
-const QPRE={all:{},gap:{gap:['gap']},sxno:{sx:['no']},sxarch:{sx:['arch']},c1no:{c1:['cpnodoc','nocp','none']},c1chk:{c1:['generic','datediff','numoth','cpdate','closed','dup']},nomark:{gap:['gap'],work:['none']}};
+const QPRE={all:{},gap:{gap:['gap']},sxno:{sx:['no']},sxarch:{sx:['arch']},c1no:{c1:['cpnodoc','nocp','none']},c1chk:{c1:['generic','datediff','numoth','nonum','cpdate','closed','dup']},nomark:{gap:['gap'],work:['none']}};
 const qkOn=(F,k)=>{const p=QPRE[k];const base=CF0();const keys=['y','mgr','kind','dir','c1','sx','sb','work','gap'];return keys.every(x=>JSON.stringify(F[x]||[])===JSON.stringify(p[x]||base[x]))&&!F.q};
 V.contracts=function(el){
   const F=V.contracts.F=V.contracts.F||CF0();
@@ -1930,7 +1943,7 @@ function cardsByCode(b,title,desc,map,field,codes,preset){
   b.innerHTML=`<div class="card"><h3>${title}</h3><p class="muted">${desc}</p><div class="kpis">${codes.map(k=>kpi(map[k][0],num(cnt[k]||0),'',map[k][1]==='ok'?'ok':map[k][1]==='bad'?'bad':map[k][1]==='warn'?'warn':'mute','#contracts',{[preset]:[k]})).join('')}</div></div><div id="cc-l"></div>`;
 }
 function reconC1(b){
-  cardsByCode(b,'Опись ↔ 1С','Для каждого договора из описи ищем договор в списке договоров 1С: по номеру, контрагенту (и ИНН) и дате. «Основной договор» — договор в 1С без номера и даты: изменить его нельзя, поэтому рекомендуем создать новый.',L1C,'c1',['ok','closed','dup','generic','datediff','numoth','cpdate','cpnodoc','nocp'],'c1');
+  cardsByCode(b,'Опись ↔ 1С','Для каждого договора из описи ищем договор в списке договоров 1С: по номеру, контрагенту (и ИНН) и дате. «Основной договор» — договор в 1С без номера и даты: изменить его нельзя, поэтому рекомендуем создать новый.',L1C,'c1',['ok','closed','dup','generic','datediff','numoth','nonum','cpdate','cpnodoc','nocp'],'c1');
   const adv=Object.entries(TODO1C).filter(([k])=>k!=='ok'&&k!=='none');
   $('#cc-l',b).innerHTML=`<div class="card"><h3>Что делать в каждом случае</h3><div class="adv">${adv.map(([k,t])=>`<div>${pill(L1C,k)}<span>${esc(t)}</span></div>`).join('')}</div></div>`;
 }
@@ -1963,7 +1976,7 @@ V.managers=function(el,sub){
 function mgrPage(el,m){
   const items=mgrItems(m);const R=V.managers.R=V.managers.R||{hide:true};
   const vis=items.filter(c=>{const k=markOf(c);return !(R.hide&&k&&(k.s==='done'||k.s==='skip'))});
-  const groups=[['Нет в СХЭД — загрузить',c=>c.sx==='no','bad'],['Лежит в архиве — загрузить в СХЭД',c=>c.sx==='arch','warn'],['Не хватает приложений в СХЭД',c=>c.sx==='part','warn'],['Нет в 1С — завести',c=>['cpnodoc','nocp','none'].includes(c.c1),'bad'],['В 1С проверить (основной договор, дата, номер, закрыт, дубль)',c=>['generic','datediff','numoth','cpdate','closed','dup'].includes(c.c1),'warn'],['Нет в СБИС',c=>['nocp','cpnodoc','none','generic'].includes(c.sb),'bad']];
+  const groups=[['Нет в СХЭД — загрузить',c=>c.sx==='no','bad'],['Лежит в архиве — загрузить в СХЭД',c=>c.sx==='arch','warn'],['Не хватает приложений в СХЭД',c=>c.sx==='part','warn'],['Нет в 1С — завести',c=>['cpnodoc','nocp','none'].includes(c.c1),'bad'],['В 1С проверить (основной договор, дата, номер, закрыт, дубль)',c=>['generic','datediff','numoth','nonum','cpdate','closed','dup'].includes(c.c1),'warn'],['Нет в СБИС',c=>['nocp','cpnodoc','none','generic'].includes(c.sb),'bad']];
   const used=new Set();
   el.innerHTML=`<div class="pghead"><div><a class="back" data-go="#managers">← Все менеджеры</a><h1>${esc(m)}</h1><p class="muted">${items.length} ${plural(items.length,'договор требует','договора требуют','договоров требуют')} действий · показано ${vis.length}</p></div>
   <div class="row"><label class="sw"><input type="checkbox" id="mp-h" ${R.hide?'checked':''}><span>скрыть закрытые</span></label><button class="btn" id="mp-mail">${ic('copy',15)} Текст письма</button><button class="btn" id="mp-x">${ic('dl',15)} Задолженность (Excel)</button><button class="btn" id="mp-boss">${ic('copy',15)} Письмо руководителю</button><button class="btn" id="mp-z">${ic('folder',15)} Договоры из архивов (ZIP)</button><button class="btn" id="mp-p">${ic('print',15)} Печать</button></div></div>
@@ -2303,22 +2316,24 @@ async function c1Excel(){
     ['Менеджер','Всего договоров','Нет в 1С — догрузить','Проверить в 1С','Итого к исправлению','В порядке по 1С, %'],
     ...D.list.map(b=>[b.m,b.total,b.n,b.chk,b.n+b.chk,b.total?Math.round((b.total-b.n-b.chk)/b.total*100):100]),
     ['ИТОГО',D.list.reduce((a,b)=>a+b.total,0),D.n,D.chk,D.n+D.chk,'']];
-  const head=['№','Менеджер','Год','Контрагент (как в Описи)','ИНН','№ договора (как в Описи)','Дата (как в Описи)','Что в 1С','Что не сходится','Как записано в 1С','Что сделать','Дней висит','Отметка','Комментарий'];
+  const head=['№','Менеджер','Год','Контрагент (как в Описи)','ИНН','№ договора (как в Описи)','Дата (как в Описи)','Что в 1С','Что не сходится','Как записано в 1С','Что сделать','Дней висит','Комментарий от менеджеров'];
   const mk=kind=>{const L=D.rows.filter(r=>r.kind===kind).sort((a,b)=>a.m.localeCompare(b.m,'ru')||a.c.y-b.c.y||a.c.cp.localeCompare(b.c.cp,'ru'));
-    return L.map((r,i)=>[i+1,mgrLabel(r.c)||r.m,r.c.y,r.c.cp,r.c.inn||'',r.c.num,fmtD(r.c.date),(L1C[r.c.c1]||L1C.unk)[0],c1Diff(r.c).what,c1Diff(r.c).c1,c1Todo(r.c),r.age||'',r.mk?.s?WORK[r.mk.s][0]:'',r.mk?.c||''])};
-  const W=[5,22,7,38,13,22,13,26,46,50,46,11,13,30];
-  const tone=t=>(v,i,j)=>{if(j===7&&v)return t;if(head[j]==='Дней висит'&&typeof v==='number'&&v>lim)return 'bad';if(head[j]==='Отметка'&&v)return v==='Готово'?'ok':v==='В работе'?'warn':v==='Не нужно'?'mute':'info';return null};
-  const sh={'Сводка по менеджерам':{rows:sum,hdr:3,widths:[28,16,20,16,18,16],tone:(v,i,j)=>i>3&&j===2&&v>0?'bad':i>3&&j===3&&v>0?'warn':null}};
+    return L.map((r,i)=>[i+1,mgrLabel(r.c)||r.m,r.c.y,r.c.cp,r.c.inn||'',r.c.num,fmtD(r.c.date),(L1C[r.c.c1]||L1C.unk)[0],c1Diff(r.c).what,c1Diff(r.c).c1,c1Todo(r.c),r.age||'',''])};
+  const W=[5,22,7,38,13,22,13,26,46,50,46,11,55];
+  const tone=t=>(v,i,j)=>{if(j===7&&v)return t;if(head[j]==='Дней висит'&&typeof v==='number'&&v>lim)return 'bad';return null};
+  const sh={'Сводка по менеджерам':{rows:sum,hdr:3,widths:[28,16,20,16,18,16],protect:true,tone:(v,i,j)=>i>3&&j===2&&v>0?'bad':i>3&&j===3&&v>0?'warn':null}};
   const a=mk('n'),b=mk('c');
-  if(a.length)sh['Догрузить в 1С']={rows:[['Договоры, которые нужно догрузить в 1С ('+a.length+')'],['Договор есть в Описи, а в 1С его нет. Менеджер или бухгалтер заводит договор в 1С с теми же номером, датой и контрагентом.'],[],head,...a],hdr:3,widths:W,tab:XL_TAB.bad,tone:tone('bad')};
-  if(b.length)sh['Проверить в 1С']={rows:[['Договоры, которые нужно проверить в 1С ('+b.length+')'],['В 1С похожий договор есть, но номер, дата или контрагент отличаются. Нужно сверить и поправить там, где ошибка.'],[],head,...b],hdr:3,widths:W,tab:XL_TAB.warn,tone:tone('warn')};
-  await exportXLSX('Нет_в_1С_по_менеджерам_'+today()+'.xlsx',sh,{title:'Как читать — договоры, которых нет в 1С',readme:[
+  if(a.length)sh['Догрузить в 1С']={rows:[['Договоры, которые нужно догрузить в 1С ('+a.length+')'],['Договор есть в Описи, а в 1С его нет. Менеджер или бухгалтер заводит договор в 1С с теми же номером, датой и контрагентом.'],[],head,...a],hdr:3,widths:W,tab:XL_TAB.bad,tone:tone('bad'),protect:true,unlockCols:[12]};
+  if(b.length)sh['Проверить в 1С']={rows:[['Договоры, которые нужно проверить в 1С ('+b.length+')'],['В 1С похожий договор есть, но номер, дата или контрагент отличаются. Нужно сверить и поправить там, где ошибка.'],[],head,...b],hdr:3,widths:W,tab:XL_TAB.warn,tone:tone('warn'),protect:true,unlockCols:[12]};
+  await exportXLSX('Нет_в_1С_по_менеджерам_'+today()+'.xlsx',sh,{protect:true,title:'Как читать — договоры, которых нет в 1С',readme:[
     ['Что это','Договоры из Описи, которые не найдены в выгрузке из 1С, и договоры, где данные в 1С расходятся с Описью.'],
     ['Сводка по менеджерам','У кого сколько договоров нужно догрузить в 1С и сколько проверить.'],
     ['Догрузить в 1С','Красный список: договора в 1С нет — его нужно завести.','bad'],
     ['Проверить в 1С','Жёлтый список: в 1С похожий договор есть, но данные не совпали, либо у контрагента в 1С только «Основной договор» и нужный договор нужно завести отдельно.','warn'],
     ['Почему цифры как в приложении','«Догрузить в 1С» = фильтр «Нет в 1С» на странице «Договоры». «Проверить в 1С» = фильтр «В 1С проверить». Закрытые вами («Готово» / «Не нужно») в файл не попадают.'],
     ['Менеджер','Менеджер указан по данным Описи и 1С. Фильтр в шапке таблицы позволяет выбрать одного.'],
+    ['Комментарии менеджеров','Менеджеры пишут только в последний столбец «Комментарий от менеджеров» на листах «Догрузить в 1С» и «Проверить в 1С». Остальное защищено от изменений (защита без пароля: «Рецензирование → Снять защиту листа»).'],
+    ['Договоры «б/н»','Если у договора в Описи указано «б/н» (без номера), это не ошибка и контрагент не перепутан. Такой договор ищется по контрагенту и дате, а не по номеру. Если подходящего договора в 1С нет, он попадает в «Проверить в 1С» со статусом «Договор без номера — проверить»: просто перепроверьте его вручную.'],
     ['Что дальше','Исправьте в 1С и сообщите бухгалтеру. После следующей загрузки выгрузки 1С эти строки исчезнут.']]});
   logAct('Excel «Нет в 1С по менеджерам»: договоров '+D.rows.length);toast('Файл сформирован: '+D.rows.length+' '+plural(D.rows.length,'договор','договора','договоров'));
 }
@@ -2337,6 +2352,7 @@ function c1Diff(c){
   switch(c.c1){
     case'datediff':what='Дата: в Описи '+fmtD(c.date)+', в 1С '+dts;break;
     case'cpdate':what='Номер: в Описи «'+(c.num||'—')+'», в 1С «'+nums+'»';break;
+    case'nonum':what='Договор без номера (б/н) от '+(c.date?fmtD(c.date):'—')+': в 1С у контрагента не нашёлся договор с такой датой — перепроверьте по контрагенту и дате';break;
     case'numoth':what='Номер «'+(c.num||'—')+'» в 1С записан за другим контрагентом: в Описи '+c.cp+', в 1С '+cps;break;
     case'generic':what='В 1С у контрагента только «Основной договор»; договора № '+(c.num||'—')+(c.date?' от '+fmtD(c.date):'')+' нет';break;
     case'closed':what='В 1С договор есть, но в состоянии «Закрыт»';break;
@@ -3993,7 +4009,7 @@ function stPlain(){
   }
   if(c1w.length)steps.push(stCard(steps.length+1,'warn',`Проверить в 1С: ${num(c1w.length)} ${plural(c1w.length,'договор','договора','договоров')}`,
     'Договор в 1С вроде бы есть, но что-то не совпадает: другая дата, договор называется «Основной договор» без номера, закрыт или задвоен. Нужно открыть его в 1С и поправить.',
-    'Номер или контрагент нашлись, но дата другая, либо в 1С запись без номера/закрытая/дубль. Это «предупреждения», не потери.',stEx(c1w),[stBtn('Показать список','#contracts',{c1:['generic','datediff','numoth','cpdate','closed','dup']},'pri')]));
+    'Номер или контрагент нашлись, но дата другая, либо в 1С запись без номера/закрытая/дубль. Это «предупреждения», не потери.',stEx(c1w),[stBtn('Показать список','#contracts',{c1:['generic','datediff','numoth','nonum','cpdate','closed','dup']},'pri')]));
   if(!sxOn)steps.push(stCard('!','warn','Загрузите страницу СХЭД','Без неё нельзя сказать, что уже загружено в хранилище.','В приложении нет данных СХЭД.',[],[]));
   if(sxA.length)steps.push(stCard(steps.length+1,'warn',`Загрузить в СХЭД: ${num(sxA.length)} ${plural(sxA.length,'договор','договора','договоров')}, файл уже есть`,
     'В СХЭД этих договоров нет, но их файлы лежат в ваших архивах. Осталось просто загрузить.',
@@ -4204,7 +4220,7 @@ function viewOverview(el){
   if(!HIDE()&&K.sxbad)todo.push([`${num(K.sxbad)} ${plural(K.sxbad,'договор','договора','договоров')} нет в СХЭД и в архивах`,'bad','#contracts',{sx:['no']}]);
   const arch=HIDE()?0:CON.filter(c=>inScope(c)&&c.sx==='arch').length;if(arch)todo.push([`${num(arch)} лежат в архивах, но не в СХЭД`,'warn','#contracts',{sx:['arch']}]);
   if(K.c1bad)todo.push([`${num(K.c1bad)} нет в 1С`,'bad','#contracts',{c1:['cpnodoc','nocp','none']}]);
-  if(K.c1warn)todo.push([`${num(K.c1warn)} в 1С нужно проверить`,'warn','#contracts',{c1:['generic','datediff','numoth','cpdate','closed','dup']}]);
+  if(K.c1warn)todo.push([`${num(K.c1warn)} в 1С нужно проверить`,'warn','#contracts',{c1:['generic','datediff','numoth','nonum','cpdate','closed','dup']}]);
   if(K.sbOn&&K.sbbad)todo.push([`${num(K.sbbad)} нет в СБИС`,'bad','#contracts',{sb:['nocp','cpnodoc','none','generic']}]);
   const ms=Object.entries(K.byMgr).filter(([k,v])=>v.open>0).sort((a,b)=>b[1].open-a[1].open).slice(0,12).map(([m,v])=>({l:m,segs:[{v:v.open,c:'var(--accent)',t:'открыто'},{v:v.done,c:'var(--ok)',t:'закрыто'}],t:v.open,go:'#managers/'+encodeURIComponent(m)}));
   el.innerHTML=`<div class="pghead"><div><h1>${mine?'Мои договоры':'Сводка для главбуха'}</h1><p class="muted">Режим только для просмотра · данные на ${esc(DATA.built)}${DATA.gen?' · обновлено '+new Date(DATA.gen).toLocaleDateString('ru-RU'):''}</p></div></div>
@@ -5268,8 +5284,8 @@ V.today=function(el){
   try{if(C1.some(r=>r.to)){const T=termRows().rows;const e1=T.filter(r=>r.cls==='ended').length,e2=T.filter(r=>r.cls==='soon').length;add(e1,'bad','Срок договора истёк',e1+' '+plural(e1,'договор','договора','договоров')+' с истёкшим сроком, но в 1С не закрыт'+plural(e1,'','ы','ы')+'.','#terms',null,'Открыть');add(e2,'warn','Скоро закончится срок',e2+' '+plural(e2,'договор','договора','договоров')+' — в ближайшие '+TERM_DAYS()+' дн.','#terms',null,'Открыть')}}catch(e){}
   const n1=sc.filter(c=>C1_NEW.includes(c.c1)).length;
   add(n1,'bad','Завести в 1С','Договоры из Описи, которых в 1С нет. Нужны менеджеры или главбух.','#contracts',{c1:C1_NEW,work:W0},'Показать договоры');
-  const n1c=sc.filter(c=>['numoth','datediff','cpdate','dup','closed','generic'].includes(c.c1)).length;
-  add(n1c,'warn','Проверить в 1С','Договор в 1С есть, но данные не сходятся (дата, номер, контрагент, дубль).','#contracts',{c1:['numoth','datediff','cpdate','dup','closed','generic'],work:W0},'Показать договоры');
+  const n1c=sc.filter(c=>['numoth','nonum','datediff','cpdate','dup','closed','generic'].includes(c.c1)).length;
+  add(n1c,'warn','Проверить в 1С','Договор в 1С есть, но данные не сходятся (дата, номер, контрагент, дубль).','#contracts',{c1:['numoth','nonum','datediff','cpdate','dup','closed','generic'],work:W0},'Показать договоры');
   if(!HIDE()){
     const nsx=sc.filter(c=>c.sx==='no'||c.sx==='arch').length;
     add(nsx,'bad','Загрузить в СХЭД','Договоров нет в СХЭД. Часть из них лежит в архивах — их можно взять оттуда.','#contracts',{sx:['no','arch'],work:W0},'Показать договоры');
