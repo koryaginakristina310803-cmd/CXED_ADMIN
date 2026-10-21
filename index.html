@@ -2967,12 +2967,12 @@ async function importSxedHtml(file,opts){
       if(!title)continue;
       const attrs={};li.querySelectorAll('span > span.text-gray-400').forEach(s=>{const k=s.textContent.replace(/:\s*$/,'').trim().toLowerCase();attrs[k]=(s.parentElement.textContent||'').replace(s.textContent,'').trim()});
       const rest=(cp&&title.startsWith(cp)?title.slice(cp.length):title).trim();
-      const m=/^Договор\s+(ИСХ|ВХ)\s*(?:№\s*)?(.*?)\s*от\s+(\d{4}-\d\d-\d\d)\s*$/i.exec(rest)||/^(.*?)\s+(ИСХ|ВХ)\s*(?:№\s*)?(.*?)\s*от\s+(\d{4}-\d\d-\d\d)\s*$/i.exec(rest);
+      const m=/^Договор\s+(ИСХОДЯЩИЙ|ВХОДЯЩИЙ|ИСХ|ВХ)\s*(?:№\s*)?(.*?)\s*от\s+(\d{4}-\d\d-\d\d)\s*$/i.exec(rest)||/^(.*?)\s+(ИСХОДЯЩИЙ|ВХОДЯЩИЙ|ИСХ|ВХ)\s*(?:№\s*)?(.*?)\s*от\s+(\d{4}-\d\d-\d\d)\s*$/i.exec(rest);
       let num='',date=null,dir='';
       if(m){const g=m.length===4?[m[1],m[2],m[3]]:[m[2],m[3],m[4]];dir=g[0];num=g[1].trim();date=g[2]}
       const state=(li.querySelector('span.rounded.text-xs')||{}).textContent?.trim()||'';
       const a=li.querySelector('a[href*="/documents/"]');
-      out.push({i:out.length,num,name:title,cp,state,date,generic:num?0:1,inn:innBy.get(cp)||'',type:'Договор',y:date?+date.slice(0,4):null,ctype:attrs['тип договора']||'',subj:attrs['предмет договора (кратко)']||'',dir:attrs['направление']||(dir==='ВХ'?'входящий':dir==='ИСХ'?'исходящий':''),role:attrs['роль общества']||'',warn:/Требует внимания/.test(li.innerHTML)?1:0,link:a?a.href:''});
+      out.push({i:out.length,num,name:title,cp,state,date,generic:num?0:1,inn:innBy.get(cp)||'',type:'Договор',y:date?+date.slice(0,4):null,ctype:attrs['тип договора']||'',subj:attrs['предмет договора (кратко)']||'',dir:attrs['направление']||(/^ВХ/i.test(dir)?'входящий':/^ИСХ/i.test(dir)?'исходящий':''),role:attrs['роль общества']||'',warn:/Требует внимания/.test(li.innerHTML)?1:0,link:a?a.href:''});
     }
     if(!out.length)throw new Error('В файле не нашла список договоров. Сохраните страницу «Дерево» ds.nordfox.ru целиком (Ctrl+S → «Веб-страница, полностью»).');
     openModal(`<h3>СХЭД: список договоров со страницы</h3><p>Найдено договоров: <b>${num(out.length)}</b>${cnt?` (на странице всего документов: ${cnt[2]}, остальные — не договоры)`:''}. С ИНН: ${num(out.filter(x=>x.inn).length)}. Входящих ${num(out.filter(x=>x.dir==='входящий').length)}, исходящих ${num(out.filter(x=>x.dir==='исходящий').length)}.</p>
