@@ -699,7 +699,7 @@ function buildAll(){
   const d1=ST.uploads.c1,dsb=ST.uploads.sbis,dsx=ST.uploads.sxed;
   C1=d1?d1.rows:DATA.c1.map(r=>({i:r[0],num:r[1],name:r[2],cp:r[3],state:r[4],date:r[5],generic:r[6],inn:'',from:r[7],to:r[8],orig:r[9],ostate:r[10],edo:r[11]}));
   SBIS=dsb?dsb.rows:[];
-  SXREC=dsx?dsx.rows:DATA.sxd.map((r,i)=>({i,y:r[0],folder:r[1],cp:r[3],num:r[4],date:r[5],name:r[6],type:r[2],note:r[7]||'',generic:0,state:'',inn:''}));
+  SXREC=dsx?dsx.rows.map(fixSxRow):DATA.sxd.map((r,i)=>({i,y:r[0],folder:r[1],cp:r[3],num:r[4],date:r[5],name:r[6],type:r[2],note:r[7]||'',generic:0,state:'',inn:''}));
   const archIdx=new Map();DOCS.forEach((d,i)=>{if(d[1].startsWith('Договор')){const k=nmk(d[3]);if(k){if(!archIdx.has(k))archIdx.set(k,[]);archIdx.get(k).push(i)}}});
   for(const c of CON){if(c.mgr&&BADMGR.test(String(c.mgr).trim())){c.mgrBad=String(c.mgr);c.mgr=''}c.key=ckey(c);CONMAP.set(c.key,c);c.sb=c.sb||'unk';c.m1=c.m1c||[];c.msb=[]}
   const opisC=CON.filter(c=>c.k==='o');
@@ -2950,6 +2950,22 @@ function mgrSummary(){
 }
 
 /* сохранённая страница СХЭД (ds.nordfox.ru/tree): список «Все документы» внизу */
+/* разбор названия договора СХЭД: «КОНТРАГЕНТ Договор исходящий №123 от 2025-01-01» и старый вид «… ИСХ №123 от …» */
+function parseSxTitle(title,cp){
+  const rest=(cp&&title.startsWith(cp)?title.slice(cp.length):title).trim();
+  const m=/^Договор\s+(ИСХОДЯЩИЙ|ВХОДЯЩИЙ|ИСХ|ВХ)\s*(?:№\s*)?(.*?)\s*от\s+(\d{4}-\d\d-\d\d)\s*$/i.exec(rest)||/^(.*?)\s+(ИСХОДЯЩИЙ|ВХОДЯЩИЙ|ИСХ|ВХ)\s*(?:№\s*)?(.*?)\s*от\s+(\d{4}-\d\d-\d\d)\s*$/i.exec(rest);
+  if(!m)return{num:'',date:null,dir:''};
+  const g=m.length===4?[m[1],m[2],m[3]]:[m[2],m[3],m[4]];
+  return{dir:g[0],num:g[1].trim(),date:g[2]};
+}
+/* старые загрузки (до исправления) хранили номер вида «одящий №030925» — перечитываем из названия */
+function fixSxRow(r){
+  if(r&&r.name&&(/(?:ящий|одящий)\s*№/i.test(r.num||'')||(!r.num&&/Договор\s+(исходящий|входящий)/i.test(r.name)))){
+    const P=parseSxTitle(r.name,r.cp||'');
+    if(P.num){r.num=P.num;r.date=P.date||r.date;r.generic=0;r.y=r.date?+r.date.slice(0,4):r.y;if(!r.dir||/^(ИСХ|ВХ)$/i.test(r.dir))r.dir=/^ВХ/i.test(P.dir)?'входящий':/^ИСХ/i.test(P.dir)?'исходящий':r.dir}
+  }
+  return r;
+}
 async function importSxedHtml(file,opts){
   try{
     toast('Читаю страницу…','info',1500);
@@ -2966,10 +2982,7 @@ async function importSxedHtml(file,opts){
       const cp=(li.querySelector('.text-xs.text-gray-500.truncate')||{}).textContent?.trim()||'';
       if(!title)continue;
       const attrs={};li.querySelectorAll('span > span.text-gray-400').forEach(s=>{const k=s.textContent.replace(/:\s*$/,'').trim().toLowerCase();attrs[k]=(s.parentElement.textContent||'').replace(s.textContent,'').trim()});
-      const rest=(cp&&title.startsWith(cp)?title.slice(cp.length):title).trim();
-      const m=/^Договор\s+(ИСХОДЯЩИЙ|ВХОДЯЩИЙ|ИСХ|ВХ)\s*(?:№\s*)?(.*?)\s*от\s+(\d{4}-\d\d-\d\d)\s*$/i.exec(rest)||/^(.*?)\s+(ИСХОДЯЩИЙ|ВХОДЯЩИЙ|ИСХ|ВХ)\s*(?:№\s*)?(.*?)\s*от\s+(\d{4}-\d\d-\d\d)\s*$/i.exec(rest);
-      let num='',date=null,dir='';
-      if(m){const g=m.length===4?[m[1],m[2],m[3]]:[m[2],m[3],m[4]];dir=g[0];num=g[1].trim();date=g[2]}
+      const P=parseSxTitle(title,cp);let num=P.num,date=P.date,dir=P.dir;
       const state=(li.querySelector('span.rounded.text-xs')||{}).textContent?.trim()||'';
       const a=li.querySelector('a[href*="/documents/"]');
       out.push({i:out.length,num,name:title,cp,state,date,generic:num?0:1,inn:innBy.get(cp)||'',type:'Договор',y:date?+date.slice(0,4):null,ctype:attrs['тип договора']||'',subj:attrs['предмет договора (кратко)']||'',dir:attrs['направление']||(/^ВХ/i.test(dir)?'входящий':/^ИСХ/i.test(dir)?'исходящий':''),role:attrs['роль общества']||'',warn:/Требует внимания/.test(li.innerHTML)?1:0,link:a?a.href:''});
@@ -4590,7 +4603,7 @@ const navHTML=()=>NAVG.map(g=>{const its=g.items.filter(([p])=>navAllowed(p));if
 const QS=new URLSearchParams(location.search);const PKG=(QS.get('u')||'').replace(/[^a-z0-9_-]/gi,'');
 const KEYN=PKG?'sxed_key_'+PKG:'sxed_key';
 function shell(){
-  document.getElementById('app').innerHTML=`<div class="shell"><aside class="side" id="side"><div class="brand"><div class="logo">${ic('folder',22)}</div><div><b>СХЭД · Учёт</b><span>ТЕХНОСТАЙЛ</span></div></div><nav>${navHTML()}</nav><div class="sidef">${VIEW?`<div class="syncchip" data-s="ok"><i></i><span class="t">Только просмотр · ${esc(VIEW.who)}</span></div>`:`<div id="syncchip" class="syncchip" data-s="off" title="Нажмите, чтобы синхронизировать"><i></i><span class="t">Не подключено</span></div>`}<div class="muted sm">данные на ${esc(DATA.built)}</div></div></aside>
+  document.getElementById('app').innerHTML=`<div class="shell"><aside class="side" id="side"><div class="brand"><div class="logo">${ic('folder',22)}</div><div><b>СХЭД · Учёт</b><span>ТЕХНОСТАЙЛ · версия ${APP_BUILD}</span></div></div><nav>${navHTML()}</nav><div class="sidef">${VIEW?`<div class="syncchip" data-s="ok"><i></i><span class="t">Только просмотр · ${esc(VIEW.who)}</span></div>`:`<div id="syncchip" class="syncchip" data-s="off" title="Нажмите, чтобы синхронизировать"><i></i><span class="t">Не подключено</span></div>`}<div class="muted sm">данные на ${esc(DATA.built)}</div></div></aside>
   <div class="mainw"><header class="top"><button class="burger" id="burger" aria-label="Меню">${ic('list',22)}</button><button class="gsearch" id="gs">${ic('search',17)}<span>Поиск по договорам и документам</span><kbd>Ctrl K</kbd></button><button class="perchip" id="perchip" title="Период документов — нажмите, чтобы изменить"></button><button class="iconbtn" id="hnt" title="Подсказки: показать или скрыть">${ic('bulb',19)}</button><button class="iconbtn" id="palbtn" title="Цветовая схема"><i class="pdot"></i></button><button class="iconbtn" id="thm" title="Тема">${ic('sun',19)}</button></header><main id="view"></main></div></div><div class="scrim" id="scrim"></div>`;
   VIEWEL=$('#view');
   $$('.nh[data-fold]').forEach(h=>h.onclick=()=>{const g=h.parentNode;g.classList.toggle('open');LS.set('sxed_nav_more',g.classList.contains('open'))});
@@ -5601,7 +5614,7 @@ setTimeout(bkTick,25000);setInterval(bkTick,10*60*1000);
 
 
 /* ===== feat3: диагностика ===== */
-const APP_BUILD='2026-10-16';
+const APP_BUILD='2026-10-21b';
 window.__errs=window.__errs||[];
 window.addEventListener('error',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String(e.message||e).slice(0,300),at:(e.filename||'').split('/').pop()+':'+(e.lineno||'')});window.__errs=window.__errs.slice(-30)}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String((e.reason&&e.reason.message)||e.reason).slice(0,300)});window.__errs=window.__errs.slice(-30)}catch(_){}});
