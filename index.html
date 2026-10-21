@@ -197,7 +197,7 @@ body.quiet #modal{opacity:0;pointer-events:none}
 .phint{background:var(--info-s);border-radius:12px;padding:8px 14px;margin:0 0 14px;color:var(--ink)}.phint summary{cursor:pointer;font-weight:650;color:var(--info);display:flex;align-items:center;gap:7px;list-style:none}.phint summary::-webkit-details-marker{display:none}.phint summary::after{content:'▾';margin-left:auto;color:var(--muted)}.phint[open] summary::after{content:'▴'}.phint div{padding:8px 0 4px}.phint p{margin:0 0 6px}
 
 
-.tcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 18px}.tcard{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;box-shadow:var(--sh);transition:.12s}.tcard:hover{border-color:var(--accent);background:var(--accent-s)}.tcard svg{color:var(--accent)}.tcard b{font-size:15px}.tcard span{font-size:12.5px;color:var(--muted)}
+.ov-h{margin:18px 0 10px;font-size:15px}.tcard.big .n{font-size:26px;font-weight:700;line-height:1.1;margin:4px 0}.tcard.big .n small{font-size:12px;font-weight:500;color:var(--muted)}.tcard.big span:not(.n){color:var(--muted);font-size:12.5px}.ov3{grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}.ov-links{margin:0 0 6px;flex-wrap:wrap;gap:8px}.tcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 18px}.tcard{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:14px;padding:14px 16px;cursor:pointer;font:inherit;box-shadow:var(--sh);transition:.12s}.tcard:hover{border-color:var(--accent);background:var(--accent-s)}.tcard svg{color:var(--accent)}.tcard b{font-size:15px}.tcard span{font-size:12.5px;color:var(--muted)}
 .explist{display:flex;flex-direction:column}.exrow{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-top:1px solid var(--line)}.exrow:first-child{border-top:0}.exi{flex:1;min-width:0}.exi p{margin:2px 0 6px}.exrow .btn{flex:none;white-space:nowrap}
 /* --- крупнее и спокойнее --- */
 body{font-size:15.5px;line-height:1.6}h1{font-size:28px}h2{font-size:21px}h3{font-size:17px}
@@ -238,6 +238,126 @@ body{font-size:15.5px;line-height:1.6}h1{font-size:28px}h2{font-size:21px}h3{fon
 @media print{.tbl tbody tr.row-done td{background:#eee!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 .tdc{border-left:5px solid var(--line)}.tdc.bad{border-left-color:var(--bad)}.tdc.warn{border-left-color:var(--warn)}.tdc.mute{border-left-color:var(--muted)}
 .tdc.bad .tdn{color:var(--bad)}.tdc.warn .tdn{color:var(--warn)}
+/* ===== Современный вид: аврора, стекло, мягкие тени ===== */
+:root[data-pal=aurora]{--bg:#eef0fb;--panel:#ffffff;--panel2:#f5f6fe;--ink:#1b2133;--line:#e2e5f6;--accent:#5b5bd6;--accent2:#4338ca;--accent3:#8f8ff2;--accent-s:#e9eafd;--muted:#677090;--mute-s:#eceefa;--ok:#2f9e6b;--ok-s:#e3f6ec;--warn:#c58a1a;--warn-s:#fdf2d9;--bad:#d1504a;--bad-s:#fde8e6;--info:#3f6fd1;--info-s:#e6eefc;--b1:#aaa6ff;--b2:#9fe0f5;--b3:#ffb8d6;--dot:transparent;--sh:0 1px 2px rgba(40,50,110,.05),0 10px 30px rgba(70,70,180,.10)}
+:root[data-pal=aurora][data-theme=dark]{--bg:#070914;--panel:#12152b;--panel2:#181c36;--ink:#eef0ff;--line:#272c4d;--accent:#9d92ff;--accent2:#c3bcff;--accent3:#6ea8ff;--accent-s:rgba(157,146,255,.16);--muted:#9aa3c9;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#5b3fe0;--b2:#0b8fb5;--b3:#c2308f;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+body{background-image:none!important;background-color:var(--bg);position:relative;isolation:isolate}
+body::before,body::after{content:"";position:fixed;z-index:-1;pointer-events:none;border-radius:50%;filter:blur(60px);opacity:.9;will-change:transform}
+body::before{width:62vmax;height:62vmax;left:-18vmax;top:-22vmax;background:radial-gradient(circle at 40% 40%,var(--b1),transparent 66%);animation:drift1 26s ease-in-out infinite alternate}
+body::after{width:56vmax;height:56vmax;right:-16vmax;bottom:-24vmax;background:radial-gradient(circle at 55% 55%,var(--b2),transparent 66%),radial-gradient(circle at 20% 80%,var(--b3),transparent 60%);animation:drift2 32s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate(9vmax,7vmax) scale(1.12)}}
+@keyframes drift2{to{transform:translate(-8vmax,-6vmax) scale(1.1)}}
+:root[data-theme=dark] body::before,:root[data-theme=dark] body::after{opacity:.55}
+@media(prefers-reduced-motion:reduce){body::before,body::after{animation:none}.card,.tcard,main>*{animation:none!important}}
+@media print{body::before,body::after{display:none}}
+/* стеклянные панели */
+.side{background:color-mix(in srgb,var(--panel) 62%,transparent)!important;backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);border-right:1px solid color-mix(in srgb,#fff 55%,var(--line))}
+:root[data-theme=dark] .side{border-right-color:rgba(255,255,255,.07)}
+.card,.gsearch,.iconbtn,.burger{background:color-mix(in srgb,var(--panel) 74%,transparent);backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border:1px solid color-mix(in srgb,#fff 60%,var(--line))}
+:root[data-theme=dark] .card,:root[data-theme=dark] .gsearch,:root[data-theme=dark] .iconbtn,:root[data-theme=dark] .burger{border-color:rgba(255,255,255,.07)}
+.card{border-radius:20px;box-shadow:var(--sh);padding:20px 22px}
+.gsearch{border-radius:14px}
+/* логотип и меню */
+.logo{background:linear-gradient(135deg,var(--accent),var(--accent3));box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 45%,transparent)}
+.side nav a{border-radius:12px;transition:background .15s,transform .15s,color .15s}
+.side nav a:hover{background:color-mix(in srgb,var(--accent) 9%,transparent);transform:translateX(2px)}
+.side nav a.on{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 20%,transparent),color-mix(in srgb,var(--accent) 5%,transparent));color:var(--accent2);box-shadow:inset 3px 0 0 var(--accent)}
+.nh{letter-spacing:.09em;font-weight:700}
+/* заголовки */
+.pghead h1{background:linear-gradient(120deg,var(--ink) 30%,var(--accent2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-size:30px;letter-spacing:-.02em}
+/* кнопки */
+.btn{border-radius:12px;background:color-mix(in srgb,var(--panel) 80%,transparent);transition:transform .14s,box-shadow .14s,background .14s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 6px 16px color-mix(in srgb,var(--accent) 14%,transparent)}
+.btn.pri,:root[data-pal] .btn.pri{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border-color:transparent;box-shadow:0 6px 18px color-mix(in srgb,var(--accent) 38%,transparent)}
+.btn.pri:hover{box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 48%,transparent);filter:brightness(1.05)}
+input,select,textarea{transition:box-shadow .15s,border-color .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent)!important;box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 20%,transparent)}
+/* карточки-действия на главной */
+.tcard{border-radius:20px;background:color-mix(in srgb,var(--panel) 74%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-color:color-mix(in srgb,#fff 60%,var(--line));transition:transform .18s,box-shadow .18s,border-color .18s,background .18s}
+:root[data-theme=dark] .tcard{border-color:rgba(255,255,255,.07)}
+.tcard:hover{transform:translateY(-4px);box-shadow:0 14px 34px color-mix(in srgb,var(--accent) 22%,transparent);background:color-mix(in srgb,var(--panel) 88%,transparent)}
+.tcard svg{padding:8px;box-sizing:content-box;border-radius:12px;background:var(--accent-s)}
+.tcard.big{padding:18px 20px}
+.tcard.big .n{background:linear-gradient(120deg,var(--accent),var(--accent3));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;font-size:30px}
+.tcard.big .n small{-webkit-text-fill-color:var(--muted);color:var(--muted)}
+/* таблицы */
+.tbl thead th{background:color-mix(in srgb,var(--panel2) 80%,transparent);backdrop-filter:blur(8px)}
+.tbl tbody tr{transition:background .12s}
+.tbl tbody tr:hover{background:color-mix(in srgb,var(--accent) 6%,transparent)}
+/* зона загрузки */
+.dz,.dropzone{border-radius:18px;background:color-mix(in srgb,var(--accent) 4%,transparent);transition:background .2s,transform .2s}
+.dz:hover,.dropzone:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);transform:scale(1.005)}
+/* плавное появление */
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+main>*,#view>*{animation:fadeUp .4s cubic-bezier(.2,.7,.2,1) both}
+main>*:nth-child(2),#view>*:nth-child(2){animation-delay:.04s}main>*:nth-child(3),#view>*:nth-child(3){animation-delay:.08s}main>*:nth-child(4),#view>*:nth-child(4){animation-delay:.12s}main>*:nth-child(5),#view>*:nth-child(5){animation-delay:.16s}
+/* бегунок и выделение */
+::selection{background:color-mix(in srgb,var(--accent) 28%,transparent)}
+*{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 35%,transparent) transparent}
+/* модальные окна и всплывашки */
+.modal,.drawer,.toast{backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+@media(max-width:900px){.side{backdrop-filter:none}body::before,body::after{filter:blur(50px)}}
+
+/* тёмная тема: глубокое стекло и неоновое свечение */
+:root[data-theme=dark] body::before,:root[data-theme=dark] body::after{opacity:.62;filter:blur(80px)}
+:root[data-theme=dark] body{background-color:var(--bg)}
+:root[data-theme=dark] .card,:root[data-theme=dark] .tcard,:root[data-theme=dark] .gsearch,:root[data-theme=dark] .iconbtn,:root[data-theme=dark] .burger{background:linear-gradient(155deg,rgba(255,255,255,.075),rgba(255,255,255,.025));border:1px solid rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 12px 36px rgba(0,0,0,.38)}
+:root[data-theme=dark] .tcard:hover{border-color:color-mix(in srgb,var(--accent) 55%,transparent);box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 16px 44px color-mix(in srgb,var(--accent) 28%,transparent)}
+:root[data-theme=dark] .side{background:linear-gradient(180deg,rgba(18,21,43,.72),rgba(10,12,28,.72))!important;border-right:1px solid rgba(255,255,255,.07);box-shadow:8px 0 40px rgba(0,0,0,.25)}
+:root[data-theme=dark] .side nav a.on{background:linear-gradient(90deg,rgba(157,146,255,.28),rgba(110,168,255,.06));box-shadow:inset 3px 0 0 var(--accent),0 0 22px rgba(157,146,255,.18);color:#fff}
+:root[data-theme=dark] .side nav a:hover{background:rgba(255,255,255,.06)}
+:root[data-theme=dark] .logo{box-shadow:0 0 26px rgba(157,146,255,.55)}
+:root[data-theme=dark] .pghead h1{background:linear-gradient(120deg,#fff 20%,var(--accent2) 70%,var(--accent3));-webkit-background-clip:text;background-clip:text}
+:root[data-theme=dark] .btn{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12)}
+:root[data-theme=dark] .btn:hover{background:rgba(255,255,255,.11);box-shadow:0 8px 22px rgba(157,146,255,.2)}
+:root[data-theme=dark] .btn.pri{background:linear-gradient(135deg,#8b7cff,#4f8dff);color:#fff;border-color:transparent;box-shadow:0 8px 26px rgba(120,110,255,.5)}
+:root[data-theme=dark] .callout{border-radius:16px;border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(12px)}
+:root[data-theme=dark] .callout.warn{background:linear-gradient(135deg,rgba(242,192,102,.16),rgba(242,192,102,.05));border-left-color:var(--warn)}
+:root[data-theme=dark] .callout.bad{background:linear-gradient(135deg,rgba(255,143,138,.16),rgba(255,143,138,.05))}
+:root[data-theme=dark] .callout.ok{background:linear-gradient(135deg,rgba(95,224,164,.15),rgba(95,224,164,.04))}
+:root[data-theme=dark] .tbl thead th{background:rgba(255,255,255,.05)}
+:root[data-theme=dark] .tbl tbody tr:hover{background:rgba(157,146,255,.1)}
+:root[data-theme=dark] input,:root[data-theme=dark] select,:root[data-theme=dark] textarea{background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);color:var(--ink)}
+:root[data-theme=dark] .dz{border-color:rgba(157,146,255,.4);background:rgba(157,146,255,.06)}
+:root[data-theme=dark] .tcard svg{background:rgba(157,146,255,.16);color:var(--accent2)}
+:root[data-theme=dark] ::selection{background:rgba(157,146,255,.4)}
+/* дополнительные цветовые схемы */
+:root[data-pal=sunset]{--bg:#fff3ec;--panel:#ffffff;--panel2:color-mix(in srgb,#e8590c 4%,#fff);--ink:#1b2133;--line:color-mix(in srgb,#e8590c 15%,#e8eaf0);--accent:#e8590c;--accent2:#c2410c;--accent3:#fb923c;--accent-s:color-mix(in srgb,#e8590c 13%,#fff);--muted:#667085;--mute-s:color-mix(in srgb,#e8590c 8%,#f1f2f6);--b1:#ffbe9a;--b2:#ffa9c4;--b3:#ffe08a;--dot:transparent;--sh:0 1px 2px rgba(40,50,80,.05),0 10px 30px color-mix(in srgb,#e8590c 16%,transparent)}
+:root[data-pal=sunset][data-theme=dark]{--bg:#130a0c;--panel:color-mix(in srgb,#ff9a62 7%,#0f121e);--panel2:color-mix(in srgb,#ff9a62 10%,#131726);--ink:#eef0ff;--line:color-mix(in srgb,#ff9a62 18%,#1d2236);--accent:#ff9a62;--accent2:#ffc2a1;--accent3:#ff6b3d;--accent-s:color-mix(in srgb,#ff9a62 18%,transparent);--muted:#9aa3c0;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#b23a10;--b2:#a31d57;--b3:#8a5a0b;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+:root[data-pal=emerald]{--bg:#eaf9f2;--panel:#ffffff;--panel2:color-mix(in srgb,#059669 4%,#fff);--ink:#1b2133;--line:color-mix(in srgb,#059669 15%,#e8eaf0);--accent:#059669;--accent2:#047857;--accent3:#34d399;--accent-s:color-mix(in srgb,#059669 13%,#fff);--muted:#667085;--mute-s:color-mix(in srgb,#059669 8%,#f1f2f6);--b1:#8fe5c1;--b2:#a9e9ee;--b3:#e2f3a0;--dot:transparent;--sh:0 1px 2px rgba(40,50,80,.05),0 10px 30px color-mix(in srgb,#059669 16%,transparent)}
+:root[data-pal=emerald][data-theme=dark]{--bg:#050f0c;--panel:color-mix(in srgb,#4fe0a8 7%,#0f121e);--panel2:color-mix(in srgb,#4fe0a8 10%,#131726);--ink:#eef0ff;--line:color-mix(in srgb,#4fe0a8 18%,#1d2236);--accent:#4fe0a8;--accent2:#9af0cd;--accent3:#10b981;--accent-s:color-mix(in srgb,#4fe0a8 18%,transparent);--muted:#9aa3c0;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#0b7a54;--b2:#0b6372;--b3:#4d6a12;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+:root[data-pal=ocean]{--bg:#e8f4fc;--panel:#ffffff;--panel2:color-mix(in srgb,#0284c7 4%,#fff);--ink:#1b2133;--line:color-mix(in srgb,#0284c7 15%,#e8eaf0);--accent:#0284c7;--accent2:#0369a1;--accent3:#38bdf8;--accent-s:color-mix(in srgb,#0284c7 13%,#fff);--muted:#667085;--mute-s:color-mix(in srgb,#0284c7 8%,#f1f2f6);--b1:#9bd3f5;--b2:#9eeadf;--b3:#c3c8ff;--dot:transparent;--sh:0 1px 2px rgba(40,50,80,.05),0 10px 30px color-mix(in srgb,#0284c7 16%,transparent)}
+:root[data-pal=ocean][data-theme=dark]{--bg:#050b15;--panel:color-mix(in srgb,#5cc8ff 7%,#0f121e);--panel2:color-mix(in srgb,#5cc8ff 10%,#131726);--ink:#eef0ff;--line:color-mix(in srgb,#5cc8ff 18%,#1d2236);--accent:#5cc8ff;--accent2:#a8e0ff;--accent3:#0ea5e9;--accent-s:color-mix(in srgb,#5cc8ff 18%,transparent);--muted:#9aa3c0;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#0c62a3;--b2:#0b8280;--b3:#3a3aa8;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+:root[data-pal=sakura]{--bg:#fff0f5;--panel:#ffffff;--panel2:color-mix(in srgb,#d6336c 4%,#fff);--ink:#1b2133;--line:color-mix(in srgb,#d6336c 15%,#e8eaf0);--accent:#d6336c;--accent2:#b0245a;--accent3:#f783ac;--accent-s:color-mix(in srgb,#d6336c 13%,#fff);--muted:#667085;--mute-s:color-mix(in srgb,#d6336c 8%,#f1f2f6);--b1:#ffbcd5;--b2:#e0c2ff;--b3:#ffdcb0;--dot:transparent;--sh:0 1px 2px rgba(40,50,80,.05),0 10px 30px color-mix(in srgb,#d6336c 16%,transparent)}
+:root[data-pal=sakura][data-theme=dark]{--bg:#14060c;--panel:color-mix(in srgb,#ff8fb8 7%,#0f121e);--panel2:color-mix(in srgb,#ff8fb8 10%,#131726);--ink:#eef0ff;--line:color-mix(in srgb,#ff8fb8 18%,#1d2236);--accent:#ff8fb8;--accent2:#ffc0d8;--accent3:#ec4899;--accent-s:color-mix(in srgb,#ff8fb8 18%,transparent);--muted:#9aa3c0;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#a3174f;--b2:#6d22a8;--b3:#9a3a12;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+:root[data-pal=graphite]{--bg:#eef0f4;--panel:#ffffff;--panel2:color-mix(in srgb,#475569 4%,#fff);--ink:#1b2133;--line:color-mix(in srgb,#475569 15%,#e8eaf0);--accent:#475569;--accent2:#1f2937;--accent3:#94a3b8;--accent-s:color-mix(in srgb,#475569 13%,#fff);--muted:#667085;--mute-s:color-mix(in srgb,#475569 8%,#f1f2f6);--b1:#d3d8e1;--b2:#e1e5ec;--b3:#dbe0e8;--dot:transparent;--sh:0 1px 2px rgba(40,50,80,.05),0 10px 30px color-mix(in srgb,#475569 16%,transparent)}
+:root[data-pal=graphite][data-theme=dark]{--bg:#090a0e;--panel:color-mix(in srgb,#cbd5e1 7%,#0f121e);--panel2:color-mix(in srgb,#cbd5e1 10%,#131726);--ink:#eef0ff;--line:color-mix(in srgb,#cbd5e1 18%,#1d2236);--accent:#cbd5e1;--accent2:#e8edf4;--accent3:#94a3b8;--accent-s:color-mix(in srgb,#cbd5e1 18%,transparent);--muted:#9aa3c0;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#2d3342;--b2:#232837;--b3:#302a3a;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+:root[data-pal=lime]{--bg:#f4f9e4;--panel:#ffffff;--panel2:color-mix(in srgb,#65a30d 4%,#fff);--ink:#1b2133;--line:color-mix(in srgb,#65a30d 15%,#e8eaf0);--accent:#65a30d;--accent2:#4d7c0f;--accent3:#a3e635;--accent-s:color-mix(in srgb,#65a30d 13%,#fff);--muted:#667085;--mute-s:color-mix(in srgb,#65a30d 8%,#f1f2f6);--b1:#cdef82;--b2:#a2ebcd;--b3:#ffee9e;--dot:transparent;--sh:0 1px 2px rgba(40,50,80,.05),0 10px 30px color-mix(in srgb,#65a30d 16%,transparent)}
+:root[data-pal=lime][data-theme=dark]{--bg:#0a0e04;--panel:color-mix(in srgb,#b5f04a 7%,#0f121e);--panel2:color-mix(in srgb,#b5f04a 10%,#131726);--ink:#eef0ff;--line:color-mix(in srgb,#b5f04a 18%,#1d2236);--accent:#b5f04a;--accent2:#d6f79a;--accent3:#84cc16;--accent-s:color-mix(in srgb,#b5f04a 18%,transparent);--muted:#9aa3c0;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#527a0c;--b2:#0b6a4d;--b3:#75620c;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+:root[data-pal=neon]{--bg:#f6efff;--panel:#ffffff;--panel2:color-mix(in srgb,#c026d3 4%,#fff);--ink:#1b2133;--line:color-mix(in srgb,#c026d3 15%,#e8eaf0);--accent:#c026d3;--accent2:#a21caf;--accent3:#22d3ee;--accent-s:color-mix(in srgb,#c026d3 13%,#fff);--muted:#667085;--mute-s:color-mix(in srgb,#c026d3 8%,#f1f2f6);--b1:#eeaeff;--b2:#96eeff;--b3:#ffb0cf;--dot:transparent;--sh:0 1px 2px rgba(40,50,80,.05),0 10px 30px color-mix(in srgb,#c026d3 16%,transparent)}
+:root[data-pal=neon][data-theme=dark]{--bg:#07040f;--panel:color-mix(in srgb,#f08bff 7%,#0f121e);--panel2:color-mix(in srgb,#f08bff 10%,#131726);--ink:#eef0ff;--line:color-mix(in srgb,#f08bff 18%,#1d2236);--accent:#f08bff;--accent2:#f8c3ff;--accent3:#22d3ee;--accent-s:color-mix(in srgb,#f08bff 18%,transparent);--muted:#9aa3c0;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#8321c2;--b2:#0a869e;--b3:#bd1c63;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+:root[data-pal=gold]{--bg:#fdf8e6;--panel:#ffffff;--panel2:color-mix(in srgb,#ca8a04 4%,#fff);--ink:#1b2133;--line:color-mix(in srgb,#ca8a04 15%,#e8eaf0);--accent:#ca8a04;--accent2:#a16207;--accent3:#facc15;--accent-s:color-mix(in srgb,#ca8a04 13%,#fff);--muted:#667085;--mute-s:color-mix(in srgb,#ca8a04 8%,#f1f2f6);--b1:#fbe284;--b2:#fbd3ab;--b3:#d6f598;--dot:transparent;--sh:0 1px 2px rgba(40,50,80,.05),0 10px 30px color-mix(in srgb,#ca8a04 16%,transparent)}
+:root[data-pal=gold][data-theme=dark]{--bg:#0e0a03;--panel:color-mix(in srgb,#fbd34d 7%,#0f121e);--panel2:color-mix(in srgb,#fbd34d 10%,#131726);--ink:#eef0ff;--line:color-mix(in srgb,#fbd34d 18%,#1d2236);--accent:#fbd34d;--accent2:#fde99a;--accent3:#eab308;--accent-s:color-mix(in srgb,#fbd34d 18%,transparent);--muted:#9aa3c0;--mute-s:rgba(255,255,255,.06);--ok:#5fe0a4;--ok-s:rgba(95,224,164,.13);--warn:#f2c066;--warn-s:rgba(242,192,102,.12);--bad:#ff8f8a;--bad-s:rgba(255,143,138,.13);--info:#8db4ff;--info-s:rgba(141,180,255,.13);--b1:#835f08;--b2:#82410c;--b3:#415f0c;--dot:transparent;--sh:0 1px 0 rgba(255,255,255,.06) inset,0 14px 40px rgba(0,0,0,.45)}
+
+:root[data-theme=dark] .btn.pri{background:linear-gradient(135deg,var(--accent),var(--accent3));color:#0b0d18}
+:root[data-theme=dark] .btn.pri svg{color:inherit}
+:root[data-theme=dark][data-pal=aurora] .btn.pri{background:linear-gradient(135deg,#8b7cff,#4f8dff);color:#fff}
+.pdot{display:block;width:20px;height:20px;border-radius:50%;background:conic-gradient(from 210deg,var(--accent),var(--accent3),#f59e0b,var(--accent));box-shadow:0 0 0 2px color-mix(in srgb,var(--panel) 90%,transparent)}
+.palpop{position:fixed;z-index:80;right:20px;top:64px;width:300px;padding:14px;border-radius:20px;background:color-mix(in srgb,var(--panel) 88%,transparent);backdrop-filter:blur(22px) saturate(1.4);-webkit-backdrop-filter:blur(22px) saturate(1.4);border:1px solid color-mix(in srgb,#fff 50%,var(--line));box-shadow:0 24px 60px rgba(20,20,60,.28);animation:fadeUp .2s both}
+:root[data-theme=dark] .palpop{border-color:rgba(255,255,255,.1);background:rgba(18,21,43,.9)}
+.palpop h4{margin:0 0 10px;font-size:12px;letter-spacing:.08em}
+.palpop .pp-g{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.palpop button{border:2px solid transparent;background:transparent;border-radius:14px;padding:7px 4px 5px;cursor:pointer;font:inherit;font-size:12px;color:var(--ink);display:flex;flex-direction:column;align-items:center;gap:5px;transition:transform .12s,background .12s}
+.palpop button:hover{background:color-mix(in srgb,var(--accent) 10%,transparent);transform:translateY(-2px)}
+.palpop button i{display:block;width:100%;height:32px;border-radius:10px;border:1px solid rgba(0,0,0,.07)}
+.palpop button.on{border-color:var(--accent);font-weight:650}
+.palpop .pp-m{display:flex;gap:6px;margin-top:12px}.palpop .pp-m button{flex:1;flex-direction:row;justify-content:center;border:1px solid var(--line);padding:7px}
+.palpop .pp-m button.on{border-color:var(--accent);background:var(--accent-s)}
+@media(max-width:900px){.palpop{right:10px;left:10px;width:auto}}
+.perchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:color-mix(in srgb,var(--panel) 74%,transparent);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:var(--ink);border-radius:12px;padding:0 13px;height:40px;font:inherit;font-size:13px;font-weight:550;white-space:nowrap;box-shadow:var(--sh)}.perchip svg{color:var(--accent)}.perchip:hover{border-color:var(--accent)}
+.prchips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.prchips .btn.on{background:var(--accent-s);border-color:var(--accent);color:var(--accent2);font-weight:650}
+.prgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:8px 0 12px}.prgrid label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted)}
+@media(max-width:900px){.perchip span{display:none}.perchip{padding:0;width:40px;justify-content:center}}
 </style></head><body><div id="app"></div>
 <script>
 'use strict';
@@ -591,7 +711,7 @@ function buildAll(){
   for(const c of opisC)if(origClass(c)==='void'){c.sx='void';c.sb='void';if(c.c1!=='ok')c.c1='void';c.todo1c=TODO1C[c.c1]||''}   // «Оригинал: не действует» — договор не проверяем ни в 1С, ни в СХЭД, ни в СБИС
   MG1C=null;for(const c of opisC)c.mgrOpis=c.mgr||'';
   {let mrows=ST.uploads.mgr1c?ST.uploads.mgr1c.rows:null;
-   if(!mrows&&ST.uploads.c1&&C1.some(r=>r.mgr)){const from=ST.settings.from||2022;mrows=C1.filter(r=>(!r.org||/техностайл/i.test(r.org))&&(!r.date||+String(r.date).slice(0,4)>=from)).map((r,i)=>({i,num:r.num,name:r.name,cp:r.cp,inn:r.inn,date:r.date,state:r.state,generic:r.generic,mgr:r.mgr}))}
+   if(!mrows&&ST.uploads.c1&&C1.some(r=>r.mgr)){mrows=C1.filter(r=>(!r.org||/техностайл/i.test(r.org))&&perOkD(r.date)).map((r,i)=>({i,num:r.num,name:r.name,cp:r.cp,inn:r.inn,date:r.date,state:r.state,generic:r.generic,mgr:r.mgr}))}
    if(mrows)applyMgr1c(opisC,mrows)}
   applyMgrFix(opisC);
   computeKpi();
@@ -603,7 +723,16 @@ let DATEFLOOR='';
 const mgFloor=()=>ST.settings.mgFrom===undefined?'2024-11-27':(ST.settings.mgFrom||'');
 function withFloor(fn){const f=mgFloor();if(!f)return fn();const old=DATEFLOOR;DATEFLOOR=f;let r;try{r=fn()}catch(e){DATEFLOOR=old;throw e}if(r&&typeof r.finally==='function')return r.finally(()=>{DATEFLOOR=old});DATEFLOOR=old;return r}
 const floorNote=()=>DATEFLOOR?'Только договоры от '+fmtD(DATEFLOOR)+' и позже (по дате договора в Описи). Договоры без даты в Описи включены.':'';
-function inScope(c){return c.k==='o'&&c.y!=null&&c.y>=(ST.settings.from||2022)&&(!DATEFLOOR||!c.date||c.date>=DATEFLOOR)}
+/* ===== единый период документов (Настройки → Период) ===== */
+const perFrom=()=>{const S=ST.settings;return S.pFrom!==undefined?S.pFrom:(S.from||2022)+'-01-01'};
+const perTo=()=>ST.settings.pTo||'';
+function inPer(c,pf,pt){if(c.y==null)return false;if(c.date){if(pf&&c.date<pf)return false;if(pt&&c.date>pt)return false}else{if(pf&&c.y<+pf.slice(0,4))return false;if(pt&&c.y>+pt.slice(0,4))return false}return true}
+const inPeriod=c=>inPer(c,perFrom(),perTo());
+const perOkD=d=>{if(!d)return true;d=String(d);const pf=perFrom(),pt=perTo();if(/^\d{4}-\d{2}-\d{2}/.test(d)){const x=d.slice(0,10);return !(pf&&x<pf)&&!(pt&&x>pt)}const y=+d.slice(0,4);return !(pf&&y<+pf.slice(0,4))&&!(pt&&y>+pt.slice(0,4))};
+const perYF=()=>{const f=perFrom();return f?+f.slice(0,4):0};
+const perYT=()=>{const t=perTo();return t?+t.slice(0,4):9999};
+function perText(){const f=perFrom(),t=perTo();const d=x=>x.split('-').reverse().join('.');if(!f&&!t)return 'за всё время';if(f&&!t)return 'с '+d(f);if(!f&&t)return 'по '+d(t);return 'с '+d(f)+' по '+d(t)}
+function inScope(c){return c.k==='o'&&inPeriod(c)&&(!DATEFLOOR||!c.date||c.date>=DATEFLOOR)}
 function gapsOf(c){
   const g=[];if(!inScope(c))return g;
   const t1=L1C[c.c1]||L1C.unk;if(t1[1]==='bad')g.push({s:'c1',tone:'bad',t:t1[0]});else if(t1[1]==='warn')g.push({s:'c1',tone:'warn',t:t1[0]});
@@ -685,7 +814,7 @@ function allAtt(){
 
 /* менеджеры из выгрузки 1С */
 function applyMgr1c(opisC,recs){
-  const from=ST.settings.from||2022;const sc=opisC.filter(c=>c.y!=null&&c.y>=from);
+  const sc=opisC.filter(c=>inPeriod(c));
   const cnt={};for(const c of sc)if(c.mgr)cnt[c.mgr]=(cnt[c.mgr]||0)+1;
   const std=new Set(Object.keys(cnt).filter(m=>cnt[m]>=3));
   const single=[...std].filter(m=>!/[\/(]/.test(m));
@@ -779,11 +908,11 @@ function clusterP(cl,on){ // присутствие по источникам: 1
 const flagOn=v=>{const s=String(v??'').trim().toLowerCase();return !!s&&s!=='нет'&&s!=='-'&&s!=='—'};
 
 function buildReg(){
-  const from=ST.settings.from||2022;
+  const from=perYF();
   const R={from,have:{},items:{},gaps:{}};
   SRCS.forEach(s=>R.have[s]={});
   const H=(s,g,on,n,note)=>{R.have[s][g]={on:!!on,n:n||0,note:note||''}};
-  const inF=y=>y==null||y>=from;
+  const inF=y=>y==null||(y>=from&&y<=perYT());
   const fromD=from+'-01-01';
   const upRows=(s,g)=>{const u=ST.uploads[xKey(s,g)];return u?u.rows:null};
   const recs={};GRPS.forEach(([g])=>recs[g]=[]);
@@ -1009,7 +1138,7 @@ function issueAge(c){
   if((ST.settings.slaMode||'seen')==='contract')return c.date?Math.max(0,daysFrom(c.date)):null;
   const s=ST.seen[c.key];return s&&s.d&&!s.r?Math.max(0,daysFrom(s.d)):0;
 }
-const slaLimit=()=>ST.settings.sla||30;
+const slaLimit=()=>1e9; // контроль сроков отключён (не используется)
 function slaRows(){
   const out=[];
   for(const c of CON){if(!isOpen(c))continue;const a=issueAge(c);out.push({c,age:a==null?0:a,over:a!=null&&a>slaLimit()})}
@@ -1679,7 +1808,7 @@ V.overviewOld=function(el){
   const topN=6;const showAll=(V.overview||{}).all;
   const fold=(id,title,sub,body,open)=>`<details class="fold" data-f="${id}" ${LS.get('sxed_ov_'+id,open)?'open':''}><summary><b>${title}</b>${sub?`<span class="muted">${sub}</span>`:''}</summary><div class="fb">${body}</div></details>`;
   el.innerHTML=`
-  <div class="pghead"><div><h1>Обзор</h1><p class="muted">Договоры с ${ST.settings.from||2022} года · данные на ${esc(DATA.built)}</p></div><div class="row"><button class="btn pri" data-go="#report">${ic('print',16)} Отчёт для главбуха</button></div></div>
+  <div class="pghead"><div><h1>Обзор</h1><p class="muted">Договоры ${perText()} · данные на ${esc(DATA.built)}</p></div><div class="row"><button class="btn pri" data-go="#report">${ic('print',16)} Отчёт для главбуха</button></div></div>
   <div class="hero">
     <div class="card herocard">
       <div class="ringw">${ring(pct,132,pct>80?'var(--ok)':pct>50?'var(--warn)':'var(--bad)')}</div>
@@ -1731,7 +1860,7 @@ V.contracts=function(el){
   <div class="card filters" id="cv-f"><div class="fsearch">${ic('search',17)}<input id="cv-q" placeholder="Контрагент, номер договора, ИНН, менеджер…" value="${esc(F.q)}"></div>
   <div class="chips qk" id="cv-qk">${QUICK.filter(([k])=>!(HIDE()&&['sxno','sxarch'].includes(k))).map(([k,l])=>`<button class="qchip ${qkOn(F,k)?'on':''}" data-q="${k}">${l}</button>`).join('')}</div>
   <div class="fgrid" id="cv-fg"></div>
-  <div class="frow"><button class="btn sm" id="cv-more">Ещё фильтры<span id="cv-mn"></span></button><div class="chips" id="cv-views"></div><label class="sw"><input type="checkbox" id="cv-all" ${F.all?'checked':''}><span>показывать договоры старше ${ST.settings.from||2022} г.</span></label><a class="clr" id="cv-clr">Сбросить</a></div>
+  <div class="frow"><button class="btn sm" id="cv-more">Ещё фильтры<span id="cv-mn"></span></button><div class="chips" id="cv-views"></div><label class="sw"><input type="checkbox" id="cv-all" ${F.all?'checked':''}><span>показывать договоры вне периода (${perText()})</span></label><a class="clr" id="cv-clr">Сбросить</a></div>
   <div class="fgrid fmore" id="cv-fg2" hidden></div></div>
   <div class="card tblw" id="cv-r"></div>`;
   const fg=$('#cv-fg',el),fg2=$('#cv-fg2',el);const PRIM=new Set(['y','mgr','gap']);
@@ -1756,9 +1885,9 @@ V.contracts=function(el){
   $('#cv-clr',el).onclick=()=>{Object.assign(F,CF0());V.contracts(el)};
   const svb=$('#cv-save',el);if(svb)svb.onclick=()=>{openModal(`<h3>Сохранить подборку</h3><p class="muted">Текущие фильтры сохранятся, чтобы быстро возвращаться к ним.</p><input id="vn" class="inp" placeholder="Название, например «Нет в СХЭД — Вершинин»"><div class="row end"><button class="btn pri" id="vs">Сохранить</button></div>`,m=>{m.querySelector('#vs').onclick=()=>{const n=m.querySelector('#vn').value.trim();if(!n)return;const id=uid();const f={...F};delete f.sel;delete f.page;ST.views[id]={name:n,scope:'contracts',f,ts:nowTs()};touch();closeModal();drawViews();toast('Подборка сохранена')}})};
   function filtered(){
-    const q=F.q.trim().toLowerCase();const from=ST.settings.from||2022;
+    const q=F.q.trim().toLowerCase();const from=perYF();
     let r=CON.filter(c=>{
-      if(!F.all&&c.k==='o'&&c.y!=null&&c.y<from)return false;
+      if(!F.all&&c.k==='o'&&!inPeriod(c))return false;
       if(F.y.length&&!F.y.includes(String(c.y)))return false;
       if(F.mgr.length&&!F.mgr.includes(c.mgr||''))return false;
       if(F.kind.length&&!F.kind.includes(c.k))return false;
@@ -1809,7 +1938,7 @@ function openContract(key){
   <div class="btns">${cbtn('Контрагент',c.cp)}${cbtn('«Контрагент № номер»',c.cp+' '+(c.num||''))}${!VIEW&&c.k==='o'?`<button class="btn sm" data-arch="${esc(key)}">${ic('search',14)}<span>Искать в архивах</span></button>`:''}</div></div>
   ${c.k==='o'?`<div class="stat4 stat5"><div><label>Опись</label><span class="pill ok">есть</span></div><div><label>1С</label>${pill(L1C,c.c1)}</div>${HIDE()?'':`<div><label>СХЭД</label>${pill(LSX,c.sx)}</div><div><label>СБИС</label>${pill(LSB,c.sb)}</div><div><label>Архивы</label>${docs.length?tag(docs.length+' файл.','info'):'<span class="muted">нет</span>'}</div>`}</div>`:''}
   ${g.length?`<div class="callout ${g.some(x=>x.tone==='bad')?'bad':'warn'}"><b>Что делать дальше</b>${nextStepsHTML(c)}</div>`:(c.k==='o'&&inScope(c)?'<div class="callout ok"><b>Всё сведено</b><p>Договор найден во всех проверенных источниках.</p></div>':'')}
-  ${isOpen(c)?(()=>{const a=issueAge(c);const ov=a!=null&&a>slaLimit();return `<div class="callout ${ov?'bad':''}"><b>Вопрос открыт ${a==null?'—':a+' дн.'}${ov?' — просрочен':''}</b><p class="sm">${(ST.settings.slaMode||'seen')==='contract'?'Считаем от даты договора.':'Считаем с момента, когда приложение впервые увидело пробел.'} Срок — ${slaLimit()} дней.</p></div>`})():''}
+  ${isOpen(c)?(()=>{const a=issueAge(c);const ov=a!=null&&a>slaLimit();return `<div class="callout ${ov?'bad':''}"><b>Вопрос открыт ${a==null?'—':a+' дн.'}${ov?' — просрочен':''}</b><p class="sm">${(ST.settings.slaMode||'seen')==='contract'?'Считаем от даты договора.':'Считаем с момента, когда приложение впервые увидело пробел.'}</p></div>`})():''}
   ${VIEW?`<div class="sect"><h4>Статус</h4><p>${m.s?pill(WORK,m.s):'<span class="muted">без отметки</span>'}</p></div>`:`<div class="sect"><h4>Моя отметка</h4><div class="mark"><div class="seg" id="mk-s">${Object.keys(WORK).map(k=>`<button data-s="${k}" class="${m.s===k?'on':''}">${WORK[k][0]}</button>`).join('')}</div><input class="inp" id="mk-a" placeholder="Ответственный / кому передано" value="${esc(m.a||'')}"><textarea class="inp" id="mk-c" rows="3" placeholder="Комментарий (виден на всех ваших устройствах)">${esc(m.c||'')}</textarea><div class="row end"><button class="btn" id="mk-clr">Снять отметку</button><button class="btn pri" id="mk-ok">Сохранить</button></div></div></div>`}
   ${c.k==='o'?`<div class="sect"><h4>Что есть в описи</h4><dl class="dl"><dt>Спецификации</dt><dd>${esc(c.spec||'—')}</dd><dt>Допсоглашения</dt><dd>${esc(c.add||'—')}</dd><dt>Вид подписи</dt><dd>${esc(c.sig||'—')}</dd><dt>Оригинал</dt><dd>${esc(c.orig||'—')} ${origClass(c)!=='ok'?pill(ORIG_L,origClass(c)):''}</dd></dl></div>`:''}
   ${m1.length?`<div class="sect"><h4>Найдено в 1С</h4>${m1.map(x=>`<div class="rec"><b>${esc(x.num||'без номера')}</b> · ${esc(x.cp)} <span class="muted">${esc(x.state||'')}${x.date?' · '+fmtD(x.date):''}</span><small>${esc(x.name||'')}</small></div>`).join('')}</div>`:(c.found1c?`<div class="sect"><h4>Найдено в 1С</h4><div class="rec"><small>${esc(c.found1c)}</small></div></div>`:'')}
@@ -1843,7 +1972,7 @@ V.recon=function(el,sub){
   let T=sub||V.recon.tab||'all';if(!['all','c1','sx','sb'].includes(T))T='all';
   V.recon.tab=T;
   const tabs=[['all','Что где есть'],['c1','Договоры: Опись ↔ 1С'],['sx','Договоры: Опись ↔ СХЭД'],['sb','Договоры: Опись ↔ СБИС']];
-  el.innerHTML=`<div class="pghead"><div><h1>Что где есть</h1><p class="muted">Опись · 1С · СХЭД · Архивы · СБИС — по каждому типу документов: что есть в каждом источнике и чего где не хватает. С ${ST.settings.from||2022} года.</p></div>${T==='all'?`<div class="row"><button class="btn" id="rc-xall">${ic('dl',15)} Excel: всё по всем типам</button></div>`:''}</div>
+  el.innerHTML=`<div class="pghead"><div><h1>Что где есть</h1><p class="muted">Опись · 1С · СХЭД · Архивы · СБИС — по каждому типу документов: что есть в каждом источнике и чего где не хватает. Период: ${perText()}.</p></div>${T==='all'?`<div class="row"><button class="btn" id="rc-xall">${ic('dl',15)} Excel: всё по всем типам</button></div>`:''}</div>
   <div class="tabs">${tabs.map(([k,l])=>`<a data-t="${k}" class="${T===k?'on':''}">${l}</a>`).join('')}</div><div id="rc-b"></div>`;
   $$('.tabs a',el).forEach(a=>a.onclick=()=>V.recon(el,a.dataset.t));
   const b=$('#rc-b',el);
@@ -2105,7 +2234,7 @@ const mrMain=m=>m!=='Не указан'&&(nameLike(m)||((KPI.byMgr[m]?.n||0)>=5&
 async function mrReport(o,only){
   const rows=mrRows(o,only);if(!rows.length){toast('По выбранным условиям недостатков нет');return}
   const single=only&&only.length===1;
-  const lim=slaLimit(),useAge=rows.some(r=>r.age>0),sel=mrKeys(o).filter(([k])=>mrOn(o,k)).map(x=>x[1]).join(', ');
+  const lim=slaLimit(),useAge=false,sel=mrKeys(o).filter(([k])=>mrOn(o,k)).map(x=>x[1]).join(', ');
   const main=managers().filter(m=>mrMain(m)&&rows.some(r=>r.m===m));
   const noMgr=rows.filter(r=>r.m==='Не указан'),odd=rows.filter(r=>r.m!=='Не указан'&&!mrMain(r.m));
   const grp=main.map(m=>[m,rows.filter(r=>r.m===m)]);
@@ -2124,7 +2253,7 @@ async function mrReport(o,only){
   }
   const tv=T.slice(0,sum[0].length-2);
   sum.push(['ИТОГО',...tv,tv[0]?Math.round((tv[0]-tv[1])/tv[0]*100):100]);
-  const head=[['Отчёт по менеджерам и договорам — ТЕХНОСТАЙЛ'],['На '+fmtD(today())+' · договоры с '+(ST.settings.from||2022)+' года · учтено: '+sel+(o.open?' · без закрытых и «не нужно»':'')],[]];
+  const head=[['Отчёт по менеджерам и договорам — ТЕХНОСТАЙЛ'],['На '+fmtD(today())+' · договоры '+perText()+' · учтено: '+sel+(o.open?' · без закрытых и «не нужно»':'')],[]];
   const KP=mrKeep(o,useAge),H=KP.map(i=>MR_H[i]);const line=r=>{const L=mrLine(r,o);return KP.map(i=>L[i])};
   const SH={};
   const stc=new Set(['1С','СХЭД','СБИС','Оригинал','Менеджер: расхождение']);
@@ -2189,7 +2318,7 @@ function mrLetter(o,only){
   }else{
     const ms=managers().filter(m=>mrMain(m)&&rows.some(r=>r.m===m));
     const rest=rows.filter(r=>!mrMain(r.m)).length;
-    t=`Добрый день!\nПо состоянию на ${fmtD(today())} по договорам с ${ST.settings.from||2022} года у сотрудников не сведено ${rows.length} ${plural(rows.length,'договор','договора','договоров')}:\n\n`+ms.map(m=>'• '+grp(m)).join('\n')+(rest?`\n• без менеджера или с нестандартной записью — ${rest}`:'')+`\n\nПодробный список по каждому сотруднику — в приложенном файле (отдельный лист на каждого). Просим связаться с сотрудниками и передать документы / дать информацию до ${plus7()}.`;
+    t=`Добрый день!\nПо состоянию на ${fmtD(today())} по договорам ${perText()} у сотрудников не сведено ${rows.length} ${plural(rows.length,'договор','договора','договоров')}:\n\n`+ms.map(m=>'• '+grp(m)).join('\n')+(rest?`\n• без менеджера или с нестандартной записью — ${rest}`:'')+`\n\nПодробный список по каждому сотруднику — в приложенном файле (отдельный лист на каждого). Просим связаться с сотрудниками и передать документы / дать информацию до ${plus7()}.`;
   }
   copyText(t,'текст письма руководителю');
 }
@@ -2236,7 +2365,7 @@ function debtSheets(M){
   const sgT=c=>{const x=mgrSuggest(c,SI);return x?x.m+(x.conf==='high'?'':' (проверить)'):'—'};
   /* Сводка */
   const sum=[[noM?'Договоры без менеджера — для руководителей':'Задолженность по договорам — '+m],
-    ['На '+fmtD(today())+' · договоры с '+(ST.settings.from||2022)+' года · '+(mrAll(o)?'все источники':'сверка по Описи и 1С')],
+    ['На '+fmtD(today())+' · договоры '+perText()+' · '+(mrAll(o)?'все источники':'сверка по Описи и 1С')],
     [],
     ['Что нужно сделать','Договоров','Что это значит'],
     ...acts.map(k=>[DB_ACT[k][0],by[k].length,DB_ACT[k][1]]),
@@ -2279,7 +2408,7 @@ function debtReadme(m,o){
     ['Синий','Нужно уточнение (например, кто ведёт договор).','info'],
     ['Зелёный','Готово.','ok'],
     ['Серый','Не требуется.','mute'],
-    ['Дней висит','Сколько дней вопрос не закрыт. Красным — если дольше нормы ('+slaLimit()+' дн.).'],
+    ['Дней висит','Сколько дней вопрос не закрыт.'],
     ['Как сообщить о результате','Исправьте данные в 1С или в Описи и сообщите бухгалтеру — в следующем файле строка пропадёт, а в сводке будет видно, сколько закрыто с прошлого раза.']
   ];
 }
@@ -2334,7 +2463,7 @@ function c1Debt(){
 async function c1Excel(){
   const D=c1Debt();if(!D.rows.length){toast('Всё из Описи есть в 1С 🎉');return}
   const lim=slaLimit();
-  const sum=[['Договоры, которых нет в 1С — по менеджерам'],['На '+fmtD(today())+' · договоры с '+(ST.settings.from||2022)+' года · сверка Описи и 1С'],[],
+  const sum=[['Договоры, которых нет в 1С — по менеджерам'],['На '+fmtD(today())+' · договоры '+perText()+' · сверка Описи и 1С'],[],
     ['Менеджер','Всего договоров','Нет в 1С — догрузить','Проверить в 1С','Итого к исправлению','В порядке по 1С, %'],
     ...D.list.map(b=>[b.m,b.total,b.n,b.chk,b.n+b.chk,b.total?Math.round((b.total-b.n-b.chk)/b.total*100):100]),
     ['ИТОГО',D.list.reduce((a,b)=>a+b.total,0),D.n,D.chk,D.n+D.chk,'']];
@@ -2421,7 +2550,7 @@ function mgrSuggest(c,idx){
 }
 function mgrCheckRows(withSg){
   const idx=withSg?mgrSugIdx():null;
-  const from=ST.settings.from||2022;const out=[];
+  const from=perYF();const out=[];
   for(const c of CON){
     if(c.k!=='o'||c.y==null||c.y<from)continue;
     const fixed=c.mgrFix!==undefined;
@@ -2475,13 +2604,13 @@ function sxdFirstRows(){
 }
 function sxdExtraRows(){
   const matched=new Set();for(const c of CON)if(c.k==='o')for(const i of (c.msx||[]))matched.add(i);
-  const from=ST.settings.from||2022;
+  const from=perYF();
   const byInn=new Map(),opis=CON.filter(c=>c.k==='o');
   for(const c of opis){if(c.inn){if(!byInn.has(c.inn))byInn.set(c.inn,[]);byInn.get(c.inn).push(c)}}
   const out=[];
   SXREC.forEach((x,i)=>{
     if(matched.has(i))return;if(x.type&&!/^договор/i.test(x.type))return;
-    const y=x.y!=null&&x.y!==''?+x.y:(x.date?+String(x.date).slice(0,4):null);if(y!=null&&y<from)return;
+    const y=x.y!=null&&x.y!==''?+x.y:(x.date?+String(x.date).slice(0,4):null);if(y!=null&&(y<from||y>perYT()))return;
     const sameCp=c=>(x.inn&&c.inn&&x.inn===c.inn)||tokmatch(x.tk||toks(x.cp),tkOf(c))||cpmatchK(x.ck||cpk(x.cp),ckOf(c));
     const near=opis.filter(sameCp);
     out.push({x,i,y,near});
@@ -2743,7 +2872,7 @@ function mappingModal(k,rows,hdr,H,map,fname,sheetName,opts){
         if(map.num==null&&map.name==null){toast('Укажите колонку с номером договора','bad');return}
         if(map.cp==null){toast('Укажите колонку с контрагентом','bad');return}
         out=normRecords(rows,map,hdr);
-        if(k==='mgr1c'){const from=ST.settings.from||2022;out=out.filter(r=>(!r.org||/техностайл/i.test(r.org))&&(!r.date||+String(r.date).slice(0,4)>=from)).map((r,i)=>({i,num:r.num,name:r.name,cp:r.cp,inn:r.inn,date:r.date,state:r.state,generic:r.generic,mgr:r.mgr}))}
+        if(k==='mgr1c'){out=out.filter(r=>(!r.org||/техностайл/i.test(r.org))&&perOkD(r.date)).map((r,i)=>({i,num:r.num,name:r.name,cp:r.cp,inn:r.inn,date:r.date,state:r.state,generic:r.generic,mgr:r.mgr}))}
       }
       if(!out.length){toast('Не нашла ни одной строки с данными','bad');return}
       let parts=null;
@@ -2889,14 +3018,14 @@ function listView(host,cfg){
 }
 const cpCell=c=>`<b>${esc(c.cp)}</b>${c.inn?`<small>ИНН ${esc(c.inn)}</small>`:''}`;
 const mgrFilter=rows=>({k:'mgr',l:'Менеджер',opts:[...new Set(rows().map(r=>(r.c||r).mgr||''))].sort((a,b)=>a.localeCompare(b,'ru')).map(m=>[m||'__none',m||'Не указан']),f:(r,v)=>((r.c||r).mgr||'')===(v==='__none'?'':v)});
-const CTABS=[['orig','Бумажные оригиналы'],['edo','ЭДО или бумага'],['dups','Дубли'],['attr','Атрибуты СХЭД'],['sla','Срок вопросов'],['ver','Версии описи']];
-const CINFO={sxd:['Что загрузить в СХЭД','Что из описи ещё не загружено в СХЭД (и что уже лежит в архивах) и что есть в СХЭД, но нет в описи.'],orig:['Бумажные оригиналы','Договоры, по которым у нас нет подписанного бумажного оригинала.'],edo:['ЭДО или бумага','Вид подписи в описи должен совпадать с оригиналом и с тем, что есть в СБИС.'],dups:['Дубли','Один документ загружен дважды, копии «(2)», дубли в списке СХЭД.'],attr:['Атрибуты СХЭД','Где контрагент, номер или дата, распознанные в СХЭД, не совпали с описью.'],sla:['Срок вопросов','Сколько дней договор висит без сведения и кто тянет дольше всех.'],ver:['Версии описи','Что добавилось, исчезло и изменилось при загрузке новой описи.']};
+const CTABS=[['orig','Бумажные оригиналы'],['edo','ЭДО или бумага'],['dups','Дубли'],['attr','Атрибуты СХЭД'],['ver','Версии описи']];
+const CINFO={sxd:['Что загрузить в СХЭД','Что из описи ещё не загружено в СХЭД (и что уже лежит в архивах) и что есть в СХЭД, но нет в описи.'],orig:['Бумажные оригиналы','Договоры, по которым у нас нет подписанного бумажного оригинала.'],edo:['ЭДО или бумага','Вид подписи в описи должен совпадать с оригиналом и с тем, что есть в СБИС.'],dups:['Дубли','Один документ загружен дважды, копии «(2)», дубли в списке СХЭД.'],attr:['Атрибуты СХЭД','Где контрагент, номер или дата, распознанные в СХЭД, не совпали с описью.'],ver:['Версии описи','Что добавилось, исчезло и изменилось при загрузке новой описи.']};
 V.ctrl=function(el,sub){
   const T=V.ctrl.tab=(sub&&CINFO[sub.split('/')[0]]?sub.split('/')[0]:V.ctrl.tab)||'orig';
-  if(VIEW&&!['orig','edo','sla'].includes(T))return GOTO('#ctrl/orig');
+  if(VIEW&&!['orig','edo'].includes(T))return GOTO('#ctrl/orig');
   const[ttl,desc]=CINFO[T];
   el.innerHTML=`<div class="pghead"><div><div class="crumb">${T==='ver'?'Данные':T==='sxd'?'Сверка':'Контроль'}</div><h1>${ttl}</h1><p class="muted">${desc}</p></div></div><div id="ct-b"></div>`;
-  ({orig:ctOrig,edo:ctEdo,dups:ctDups,attr:ctAttr,sla:ctSla,ver:ctVer,sxd:ctSxd})[T]($('#ct-b',el),el);
+  ({orig:ctOrig,edo:ctEdo,dups:ctDups,attr:ctAttr,ver:ctVer,sxd:ctSxd})[T]($('#ct-b',el),el);
 };
 const dateOrDash=d=>d?fmtD(d):'<span class="muted">—</span>';
 const tileRow=a=>`<div class="kpis tiles">${a.map(([l,v,s,t,go])=>`<div class="kpi ${t||''}"><span class="kl">${l}</span><span class="kv">${v}</span>${s?`<span class="ks">${s}</span>`:''}</div>`).join('')}</div>`;
@@ -2910,7 +3039,7 @@ function ctOrig(host){
   const asked=all.filter(r=>r.q&&r.q.s==='asked');const over=asked.filter(r=>daysFrom(r.q.d)>days);
   host.innerHTML=`<p class="muted sm">Только скан, «нами не подписан», «нет». Отметьте, когда запросили оригинал, — приложение посчитает дни; просрочка — дольше ${days} дней.</p>
   ${tileRow([['Только скан',by.scan||0,'нужно получить оригинал',by.scan?'warn':'ok'],['Не подписан нами',by.ours||0,'подписать и вернуть',by.ours?'bad':'ok'],['Не подписан контрагентом',by.theirs||0,'ждём от контрагента',by.theirs?'bad':'ok'],['Оригинала нет',by.none||0,'',by.none?'bad':'ok'],['Запросили',asked.length,over.length?`из них ${over.length} дольше ${days} дн.`:'просрочек нет',over.length?'bad':'info']])}
-  <div class="row" style="margin:10px 0"><label class="sw"><input type="checkbox" id="o-all" ${S.all?'checked':''}><span>все годы (а не только с ${ST.settings.from||2022})</span></label><label class="sw"><input type="checkbox" id="o-hide" ${S.hide?'checked':''}><span>скрыть полученные и «не нужен»</span></label>${VIEW?'':`<button class="btn" id="o-mail">${ic('copy',15)} Текст письма менеджеру</button><button class="btn" id="o-bulk">Отметить выбранное как «Запросили»</button>`}</div><div id="o-l" class="card tblw"></div>`;
+  <div class="row" style="margin:10px 0"><label class="sw"><input type="checkbox" id="o-all" ${S.all?'checked':''}><span>все годы (а не только ${perText()})</span></label><label class="sw"><input type="checkbox" id="o-hide" ${S.hide?'checked':''}><span>скрыть полученные и «не нужен»</span></label>${VIEW?'':`<button class="btn" id="o-mail">${ic('copy',15)} Текст письма менеджеру</button><button class="btn" id="o-bulk">Отметить выбранное как «Запросили»</button>`}</div><div id="o-l" class="card tblw"></div>`;
   $('#o-all',host).onchange=e=>{S.all=e.target.checked;ctOrig(host)};
   $('#o-hide',host).onchange=e=>{S.hide=e.target.checked;ctOrig(host)};
   const rowsFn=()=>base().filter(r=>!(S.hide&&r.q&&(r.q.s==='got'||r.q.s==='na')));
@@ -2997,29 +3126,6 @@ function ctAttr(host){
       {k:'pc',l:'В описи: контрагент',h:r=>pe(r)?esc(pe(r).cp):'<span class="muted">—</span>',x:r=>pe(r)?.cp||''},{k:'pn',l:'№',h:r=>pe(r)?`<span class="mono">${esc(pe(r).num)}</span>`:'<span class="muted">—</span>',x:r=>pe(r)?.num||''},{k:'pd',l:'Дата',h:r=>pe(r)?fmtD(pe(r).date):'<span class="muted">—</span>',x:r=>pe(r)?fmtD(pe(r).date):''},
       {k:'f',l:'Файл в СХЭД',h:r=>`<small>${esc(r.x.name||'')}</small>`,x:r=>r.x.name||'',noX:false},{k:'note',l:'Пометка',h:r=>`<small>${esc(r.note||'')}</small>`,x:r=>r.note||''}],
     onRow:r=>{if(pe(r))openContract(pe(r).key)}});
-}
-
-/* ---------- Срок «жизни» вопроса ---------- */
-function ctSla(host){
-  const lim=slaLimit();const mode=ST.settings.slaMode||'seen';const rowsAll=slaRows();const over=rowsAll.filter(r=>r.over);
-  const rating=slaByMgr(rowsAll);const avg=rowsAll.length?Math.round(rowsAll.reduce((a,r)=>a+r.age,0)/rowsAll.length):0;const mx=rowsAll.reduce((a,r)=>Math.max(a,r.age),0);
-  host.innerHTML=`<p class="muted sm">Просрочен вопрос, открытый дольше ${lim} дней. Закрытые («Готово», «Не нужно») не считаются.</p>
-  <div class="row" style="margin:6px 0 12px"><div class="seg" id="sl-m"><button data-m="seen" class="${mode==='seen'?'on':''}">С момента, когда приложение увидело пробел</button><button data-m="contract" class="${mode==='contract'?'on':''}">От даты договора</button></div>${VIEW?'':`<label class="sw">Просрочка, дней: <input id="sl-l" class="inp" type="number" min="1" max="365" value="${lim}" style="width:80px;margin-left:6px"></label>`}</div>
-  ${mode==='seen'?`<div class="callout"><b>Счётчик пошёл с первого запуска</b><p>Сейчас идёт отсчёт «с момента, когда пробел был замечен», поэтому у большинства вопросов маленький возраст — со временем он вырастет, а просрочка появится через ${lim} дней. Чтобы сразу посмотреть, как давно подписаны договоры, переключитесь на «От даты договора».</p></div>`:''}
-  ${tileRow([['Открытых вопросов',num(rowsAll.length),'договоров с пробелами',rowsAll.length?'warn':'ok'],['Просрочено',num(over.length),'дольше '+lim+' дн.',over.length?'bad':'ok'],['Средний возраст',avg+' дн.','по открытым'],['Самый давний',mx+' дн.','']])}
-  <div class="cols2"><section class="card"><h3>Рейтинг менеджеров <small class="muted">чем выше — тем больше просрочено</small></h3>
-  <div class="tscroll"><table class="tbl"><thead><tr><th>#</th><th>Менеджер</th><th class="r">Открыто</th><th class="r">Просрочено</th><th class="r">Средний возраст</th><th class="r">Самый давний</th></tr></thead><tbody>${rating.map((o,i)=>`<tr data-m="${esc(o.m)}" class="${o.over?'':'okrow'}"><td>${i+1}</td><td><b>${esc(o.m)}</b></td><td class="r">${o.open}</td><td class="r ${o.over?'bad-t':''}"><b>${o.over}</b></td><td class="r">${o.avg} дн.</td><td class="r">${o.max} дн.</td></tr>`).join('')||'<tr><td colspan="6" class="empty">Открытых вопросов нет.</td></tr>'}</tbody></table></div></section>
-  <section class="card"><h3>Возраст вопросов</h3>${bars([['до 7 дней',0,7],['8–30 дней',8,30],['31–90 дней',31,90],['91–365 дней',91,365],['больше года',366,1e9]].map(([l,a,b])=>({l,segs:[{v:rowsAll.filter(r=>r.age>=a&&r.age<=b).length,c:b<=lim?'var(--ok)':a>lim?'var(--bad)':'var(--warn)',t:l}]})))}<p class="muted sm">Красным — старше ${lim} дней.</p></section></div>
-  <div class="card tblw" id="sl-l2"></div>`;
-  $$('#sl-m button',host).forEach(b=>b.onclick=()=>{ST.settings={...ST.settings,slaMode:b.dataset.m};touch();ctSla(host)});
-  const li=$('#sl-l',host);if(li)li.onchange=()=>{ST.settings={...ST.settings,sla:Math.max(1,+li.value||30)};touch();V.ctrl(VIEWEL,'sla')};
-  $$('tr[data-m]',host).forEach(t=>t.onclick=()=>{const q=LVS.sla=LVS.sla||{q:'',f:{},page:0};q.f.mgr=t.dataset.m==='Не указан'?'__none':t.dataset.m;ctSla(host)});
-  listView($('#sl-l2',host),{id:'sla',rows:()=>slaRows(),file:'Срок_вопросов',sheet:'Срок вопросов',sort:'age',dir:-1,search:r=>r.c.cp+' '+r.c.num+' '+(r.c.mgr||''),
-    rowCls:r=>r.over?'overdue':'',
-    filters:[mgrFilter(()=>slaRows()),{k:'o',l:'Срок',opts:[['over','Просрочено'],['ok','В срок']],f:(r,v)=>v==='over'?r.over:!r.over}],
-    cols:[{k:'age',l:'Возраст',h:r=>`<b class="${r.over?'bad-t':''}">${r.age} дн.</b>${r.over?' <span class="pill bad">просрочен</span>':''}`,v:r=>r.age,x:r=>r.age},{k:'y',l:'Год',h:r=>r.c.y??'—',v:r=>r.c.y},{k:'cp',l:'Контрагент',h:r=>`<span class="cpn">${cpCell(r.c)}</span>`,v:r=>r.c.cp.toLowerCase(),x:r=>r.c.cp},{k:'num',l:'№ договора',h:r=>`<span class="mono">${esc(r.c.num||'—')}</span>`,v:r=>nn(r.c.num),x:r=>r.c.num},{k:'date',l:'Дата',h:r=>fmtD(r.c.date),v:r=>r.c.date,x:r=>fmtD(r.c.date)},{k:'mgr',l:'Менеджер',h:r=>esc(r.c.mgr||'—'),v:r=>r.c.mgr||'яя',x:r=>r.c.mgr},
-      {k:'g',l:'Чего не хватает',h:r=>`<small>${esc(todoText(r.c)).slice(0,120)}</small>`,x:r=>todoText(r.c)}],
-    onRow:r=>openContract(r.c.key)});
 }
 
 /* ---------- Версии описи ---------- */
@@ -4071,20 +4177,19 @@ V.start=function(el){
 
 V.overview=function(el){
   if(VIEW)return viewOverview(el);
-  el.innerHTML=`<div class="pghead"><div><h1>Старт</h1><p class="muted">1. Загрузите выгрузки. 2. Прочитайте, что не хватает. 3. Выполните шаги по порядку. Договоры с ${ST.settings.from||2022} года.</p></div><div class="row"><button class="btn" data-go="#report">${ic('print',16)} Отчёт для главбуха</button></div></div>
-  <div class="tcards">
-    <button class="tcard" onclick="var z=document.getElementById('st-dz');if(z)z.scrollIntoView({behavior:'smooth',block:'center'})">${ic('up',22)}<b>Загрузить файлы</b><span>1С, СХЭД, Опись — всё сразу</span></button>
-    <button class="tcard" data-go="#compare">${ic('scale',22)}<b>Сверка</b><span>Что сходится, а что нет</span></button>
-    <button class="tcard" onclick="packModal()">${ic('dl',22)}<b>Подготовить пакет</b><span>Все файлы одним ZIP</span></button>
-    <button class="tcard" data-go="#exports/mgr">${ic('users',22)}<b>Отправить менеджерам</b><span>Кому что догрузить, файл на каждого</span></button>
-    <button class="tcard" data-go="#exports/boss">${ic('print',22)}<b>Отправить главбуху</b><span>Отчёт и что догрузить в 1С</span></button>
-    <button class="tcard" data-go="#contracts">${ic('file',22)}<b>Найти договор</b><span>Статус и что сделать</span></button>
-    <button class="tcard" data-go="#exports/chk">${ic('check',22)}<b>Проверить файл менеджера</b><span>Внёс ли он договоры в 1С</span></button>
-    <button class="tcard" data-go="#managers/_check">${ic('warn',22)}<b>Договоры без менеджера</b><span>Подтвердить предположения</span></button>
+  const K=KPI;const pct=K.total?Math.round(K.full/K.total*100):0;
+  const mgrOpen=Object.values(K.byMgr||{}).filter(v=>v.open>0).length;
+  el.innerHTML=`<div class="pghead"><div><h1>Старт</h1><p class="muted">Загрузите свежие выгрузки — приложение само сверит их и покажет, что делать. Договоры ${perText()}.</p></div></div>
+  <div class="tcards ov3">
+    <button class="tcard big" data-go="#compare">${ic('scale',24)}<b>Сверка</b><span class="n">${num(K.full)} из ${num(K.total)} <small>сведено · ${pct}%</small></span><span>Нет в 1С: ${num(K.c1bad)}${K.sxbad!=null&&!HIDE()?' · нет в СХЭД: '+num(K.sxbad):''}</span></button>
+    <button class="tcard big" data-go="#exports">${ic('users',24)}<b>Выгрузки менеджерам</b><span class="n">${num(mgrOpen)} <small>${plural(mgrOpen,'менеджер','менеджера','менеджеров')} с вопросами</small></span><span>Excel с договорами, которых нет в 1С</span></button>
+    <button class="tcard big" data-go="#report">${ic('print',24)}<b>Отчёт для главбуха</b><span class="n">${num(K.open)} <small>открытых вопросов</small></span><span>Одна страница PDF</span></button>
   </div>
-  <div id="ov-rem"></div><div id="ov-week"></div>
+  <div class="row ov-links"><button class="btn" data-go="#contracts">${ic('file',16)} Найти договор</button><button class="btn" data-go="#exports/chk">${ic('check',16)} Проверить файл менеджера</button><button class="btn" data-go="#managers/_check">${ic('warn',16)} Договоры без менеджера</button><button class="btn" onclick="packModal()">${ic('dl',16)} Пакет для СХЭД</button></div>
+  <div id="ov-rem"></div>
   <div id="ov-start"></div>
-  <details class="fold" style="margin-top:14px"><summary><b>Подробные показатели</b><span class="muted">для тех, кому нужны диаграммы и разрезы</span></summary><div class="fb" id="ov-old"></div></details>`;
+  <div id="ov-week"></div>
+  <details class="fold" style="margin-top:14px"><summary><b>Подробные показатели</b><span class="muted">диаграммы и разрезы</span></summary><div class="fb" id="ov-old"></div></details>`;
   try{$('#ov-rem',el).innerHTML=remBar(true)}catch(e){console.error(e)}
   try{$('#ov-week',el).innerHTML=weekBlock()}catch(e){console.error(e)}
   V.start($('#ov-start',el));
@@ -4124,16 +4229,16 @@ function reportHTML(R){
 .rp .bar{height:9px;background:#eef1f4;border-radius:6px;overflow:hidden;display:flex}.rp .bar i{display:block;height:100%}.rp .foot{margin-top:16px;color:#8a94a6;font-size:11px;display:flex;justify-content:space-between}
 .rp .cols{display:grid;grid-template-columns:1.25fr 1fr;gap:18px}
 </style>
-<h1>Сверка договоров и документов — ${MONTHS[R.M-1]} ${R.Y}</h1><p class="sub">ТЕХНОСТАЙЛ · ${R.two?'сверка Описи договоров и 1С':'цифровой архив (СХЭД)'} · подготовлено ${R.now.getDate()} ${MONTHS_G[R.now.getMonth()]} ${R.now.getFullYear()} · данные на ${esc(DATA.built)} · договоры с ${ST.settings.from||2022} года</p>
+<h1>Сверка договоров и документов — ${MONTHS[R.M-1]} ${R.Y}</h1><p class="sub">ТЕХНОСТАЙЛ · ${R.two?'сверка Описи договоров и 1С':'цифровой архив (СХЭД)'} · подготовлено ${R.now.getDate()} ${MONTHS_G[R.now.getMonth()]} ${R.now.getFullYear()} · данные на ${esc(DATA.built)} · договоры ${perText()}</p>
 <div class="hero"><div style="flex:1"><div style="font-size:12px;color:#6b7686">Сведено полностью</div><div class="big">${num(K.full)} <span style="font-size:18px;color:#6b7686;font-weight:600">из ${num(K.total)}</span></div><div class="pb"><i style="width:${R.pct}%"></i></div></div><div style="text-align:right"><div class="big" style="color:#2f6f6a">${Math.round(R.pct)}%</div><div style="font-size:12px;color:#6b7686">осталось ${num(K.total-K.full)} · открыто ${num(K.open)}</div></div></div>
 <h2>Динамика за месяц</h2>
-<div class="tiles">${tile('Закрыто в этом месяце',num(R.closed),'отмечено «Готово» / «Не нужно»','#1f8a5b')}${tile('Сведено, изменение',R.fullDelta==null?'—':(R.fullDelta>0?'+':'')+R.fullDelta,R.base?'с '+fmtD(R.base.d):'накопится со следующего месяца',R.fullDelta>0?'#1f8a5b':'#1d2733')}${tile('Открыто, изменение',R.openDelta==null?'—':(R.openDelta>0?'+':'')+R.openDelta,R.base?'с '+fmtD(R.base.d):'накопится со следующего месяца',R.openDelta>0?'#c0392b':R.openDelta<0?'#1f8a5b':'#1d2733')}${tile('Просрочено > '+R.lim+' дн.',num(R.over),'открытых вопросов',R.over?'#c0392b':'#1f8a5b')}</div>
+<div class="tiles">${tile('Закрыто в этом месяце',num(R.closed),'отмечено «Готово» / «Не нужно»','#1f8a5b')}${tile('Сведено, изменение',R.fullDelta==null?'—':(R.fullDelta>0?'+':'')+R.fullDelta,R.base?'с '+fmtD(R.base.d):'накопится со следующего месяца',R.fullDelta>0?'#1f8a5b':'#1d2733')}${tile('Открыто, изменение',R.openDelta==null?'—':(R.openDelta>0?'+':'')+R.openDelta,R.base?'с '+fmtD(R.base.d):'накопится со следующего месяца',R.openDelta>0?'#c0392b':R.openDelta<0?'#1f8a5b':'#1d2733')}${tile('Осталось сверить',num(K.open),'открытых вопросов',K.open?'#c0392b':'#1f8a5b')}</div>
 <div class="cols"><div><h2>Что осталось</h2><table><thead><tr><th>Источник</th><th class="r">Осталось</th><th class="r">За месяц</th></tr></thead><tbody>${R.src.map(([l,v,b,s])=>`<tr><td>${l}${s?`<div style="font-size:11px;color:#8a94a6">${s}</div>`:''}</td><td class="r"><b>${v==null?'—':num(v)}</b></td><td class="r">${v==null?'—':dl(v,b)}</td></tr>`).join('')}</tbody></table></div>
 <div><h2>Договоры по годам</h2>${R.years.map(y=>`<div style="display:flex;align-items:center;gap:8px;margin:5px 0"><span style="width:34px;font-size:12px;color:#6b7686">${y.y}</span><div class="bar" style="flex:1;max-width:${Math.max(30,y.n/yearMax*100)}%"><i style="width:${y.n?y.ok/y.n*100:0}%;background:#1f8a5b"></i><i style="width:${y.n?y.warn/y.n*100:0}%;background:#e0a100"></i><i style="width:${y.n?y.bad/y.n*100:0}%;background:#c0392b"></i></div><b style="font-size:12px">${y.n}</b></div>`).join('')}<div style="font-size:10.5px;color:#8a94a6;margin-top:6px">зелёное — сведено · жёлтое — проверить · красное — нет в источнике</div></div></div>
 <h2>Договоры, которых нет в 1С — по менеджерам</h2>
 ${R.c1d.list.length?`<table><thead><tr><th>Менеджер</th><th class="r">Договоров</th><th class="r">Догрузить в 1С</th><th class="r">Проверить в 1С</th><th>Что догрузить (примеры)</th></tr></thead><tbody>${R.c1d.list.slice(0,14).map(b=>{const ex=b.rows.filter(r=>r.kind==='n').slice(0,2).map(r=>esc(r.c.cp.split(' / ')[0])+' № '+esc(r.c.num)).join('; ');const more=b.n>2?` и ещё ${b.n-2}`:'';return `<tr><td><b>${esc(b.m)}</b></td><td class="r">${b.total}</td><td class="r" style="color:${b.n?'#c0392b':'#6b7686'};font-weight:${b.n?700:400}">${b.n||'—'}</td><td class="r" style="color:${b.chk?'#b77a14':'#6b7686'}">${b.chk||'—'}</td><td style="font-size:11px;color:#4a5566">${ex?ex+more:'—'}</td></tr>`}).join('')}<tr><td><b>Итого</b></td><td class="r">${R.c1d.list.reduce((a,b)=>a+b.total,0)}</td><td class="r"><b>${R.c1d.n}</b></td><td class="r"><b>${R.c1d.chk}</b></td><td style="font-size:11px;color:#8a94a6">${R.c1d.list.length>14?`ещё ${R.c1d.list.length-14} менеджеров — в Excel. `:''}Полный список — в файле «Нет в 1С по менеджерам».</td></tr></tbody></table>`:'<p style="color:#6b7686">Все договоры из Описи найдены в 1С.</p>'}
 <h2>Менеджеры с открытыми вопросами (топ-${R.top.length})</h2>
-<table><thead><tr><th>Менеджер</th><th class="r">Открыто</th><th class="r">Закрыто</th><th class="r">Просрочено</th><th class="r">Самый давний</th><th style="width:150px"></th></tr></thead><tbody>${R.top.map(t=>`<tr><td><b>${esc(t.m)}</b></td><td class="r"><b>${t.open}</b></td><td class="r">${t.done}</td><td class="r" style="color:${t.over?'#c0392b':'#6b7686'};font-weight:${t.over?700:400}">${t.over||'—'}</td><td class="r">${t.max?t.max+' дн.':'—'}</td><td><div class="bar"><i style="width:${t.open/maxO*100}%;background:#2f6f6a"></i></div></td></tr>`).join('')||'<tr><td colspan="6" style="color:#6b7686">Открытых вопросов нет.</td></tr>'}</tbody></table>
+<table><thead><tr><th>Менеджер</th><th class="r">Открыто</th><th class="r">Закрыто</th><th style="width:150px"></th></tr></thead><tbody>${R.top.map(t=>`<tr><td><b>${esc(t.m)}</b></td><td class="r"><b>${t.open}</b></td><td class="r">${t.done}</td><td><div class="bar"><i style="width:${t.open/maxO*100}%;background:#2f6f6a"></i></div></td></tr>`).join('')||'<tr><td colspan="4" style="color:#6b7686">Открытых вопросов нет.</td></tr>'}</tbody></table>
 <div class="foot"><span>${R.two?'Источники: Опись договоров и 1С':'Сформировано приложением «СХЭД · Учёт»'}</span><span>${R.base?'Динамика — с '+fmtD(R.base.d):'Динамика накапливается с первого запуска'}</span></div></div>`;
 }
 function loadScript(src){return new Promise((res,rej)=>{if([...document.scripts].some(s=>s.src===src))return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('Не удалось загрузить модуль PDF (нужен интернет)'));document.head.appendChild(s)})}
@@ -4173,16 +4278,16 @@ function genPwd(){const A='abcdefghjkmnpqrstuvwxyz23456789';const r=crypto.getRa
 const ACC_BLOBS={};
 /* срез данных для одного человека: только то, что ему можно видеть */
 function accessPkg(who,kind){
-  const sc=CON.filter(c=>c.k==='o'&&inScope(c)&&(kind==='acc'||mgrOf(c)===who));
+  const sc=CON.filter(c=>c.k==='o'&&inScope(c)&&(kind!=='mgr'||mgrOf(c)===who));
   const idxMap=new Map(),docs=[];const marks={},orig={},seen={};
   const contracts=sc.map(c=>{
-    const o={...c};delete o._ck;delete o._tk;o.m1c=[];o.m1=[];o.msb=[];o.found1c='';if(!ST.settings.otherSrc){o.sb='unk';o.sx='na';o.docs=[];o.msx=[];o.sxmiss=[];o.sxw=''}
+    const o={...c};delete o._ck;delete o._tk;o.m1c=[];o.m1=[];o.msb=[];o.found1c='';if(kind!=='it'&&!ST.settings.otherSrc){o.sb='unk';o.sx='na';o.docs=[];o.msx=[];o.sxmiss=[];o.sxw=''}
     o.docs=(c.docs||[]).map(i=>{if(!idxMap.has(i)){idxMap.set(i,docs.length);docs.push(DOCS[i])}return idxMap.get(i)});
     const m=ST.marks[c.key];if(m&&m.s)marks[c.key]={s:m.s,ts:m.ts};
     if(ST.orig[c.key])orig[c.key]=ST.orig[c.key];if(ST.seen[c.key])seen[c.key]=ST.seen[c.key];
     return o;
   });
-  return{view:{who:kind==='acc'?'Главбух':who,kind,slug:slugOf(kind==='acc'?'glavbuh':who)},built:DATA.built,gen:nowTs(),hideOther:!ST.settings.otherSrc,sbOn:ST.settings.otherSrc?KPI.sbOn:false,settings:{from:ST.settings.from||2022,sla:slaLimit(),slaMode:ST.settings.slaMode||'seen',origDays:ST.settings.origDays||14,prefix:ST.settings.prefix||''},contracts,docs,marks,orig,seen,att:[],c1:[],sxd:[],nso:[],inc:[],nps:[],only1c:[]};
+  return{view:{who:kind==='acc'?'Главбух':kind==='it'?'ИТ-отдел':who,kind,slug:slugOf(kind==='acc'?'glavbuh':kind==='it'?'it':who)},built:DATA.built,gen:nowTs(),hideOther:kind==='it'?false:!ST.settings.otherSrc,sbOn:kind!=='it'&&ST.settings.otherSrc?KPI.sbOn:false,settings:{from:perYF()||2000,pFrom:perFrom(),pTo:perTo(),sla:slaLimit(),slaMode:ST.settings.slaMode||'seen',origDays:ST.settings.origDays||14,prefix:ST.settings.prefix||''},contracts,docs,marks,orig,seen,att:[],c1:[],sxd:[],nso:[],inc:[],nps:[],only1c:[]};
 }
 async function buildAccess(who,kind){
   const pkg=accessPkg(who,kind);const slug=pkg.view.slug;
@@ -4195,7 +4300,7 @@ async function buildAccess(who,kind){
 }
 const accessLink=slug=>location.origin+location.pathname.replace(/[^/]*$/,'')+'index.html?u='+slug;
 function inviteText(slug){const r=ST.access[slug];const link=location.protocol==='file:'?'(ссылка появится после публикации на сайте)':accessLink(slug).replace('/index.html','/');
-  return `Добрый день!\nЗдесь можно посмотреть ${r.kind==='acc'?'сводку по всем договорам':'ваши договоры'}, по которым нужны действия: ${link}${link.includes('?')?'':'?u='+slug}\nПароль: ${r.pwd}\nСтраница только для просмотра — менять данные нельзя.`}
+  return `Добрый день!\nЗдесь можно посмотреть ${r.kind==='acc'?'сводку по всем договорам':r.kind==='it'?'какие договоры не загружены в СХЭД':'ваши договоры'}, по которым нужны действия: ${link}${link.includes('?')?'':'?u='+slug}\nПароль: ${r.pwd}\nСтраница только для просмотра — менять данные нельзя.`}
 async function ghPutFile(path,u8){
   const c=LS.get('sxed_gh',null);if(!c)throw new Error('Сначала подключите синхронизацию GitHub в «Настройках»');
   const url='https://api.github.com/repos/'+c.repo+'/contents/'+path;const h={'Authorization':'Bearer '+c.token,'Accept':'application/vnd.github+json'};
@@ -4205,18 +4310,17 @@ async function ghPutFile(path,u8){
   if(!r.ok)throw new Error('GitHub '+r.status+(r.status===404?' (проверьте права токена)':''));
 }
 V.access=function(el){
-  const mgrs=managers().filter(m=>m!=='Не указан');
-  const people=[{who:'Главбух',kind:'acc',slug:'glavbuh',note:'все договоры, списки по менеджерам, оригиналы, сроки'},...mgrs.map(m=>({who:m,kind:'mgr',slug:slugOf(m),note:'только договоры этого менеджера'}))];
+  const people=[{who:'Главбух',kind:'acc',slug:'glavbuh',note:'все договоры, списки по менеджерам, оригиналы'},{who:'ИТ-отдел',kind:'it',slug:'it',note:'только СХЭД: каких договоров нет в СХЭД и в архивах'}];
   const hasGh=!!LS.get('sxed_gh',null);
   const grp=(t,L)=>L.length?`<tr class="grp"><td colspan="4">${t}</td></tr>`+L.map(row).join(''):'';
   const row=p=>{const r=ST.access[p.slug];return `<tr><td><b>${esc(p.who)}</b><small>${p.note}</small></td>
     <td class="sm">${r?`${r.n} догов. · открыто ${r.open}<br><span class="muted">создан ${new Date(r.ts).toLocaleDateString('ru-RU')}${r.pub?' · на сайте с '+new Date(r.pub).toLocaleDateString('ru-RU'):' · не опубликован'}</span>`:'<span class="muted">не создан</span>'}</td>
     <td>${r?`<span class="mono">${esc(r.pwd)}</span> ${cbtn('пароль',r.pwd)}`:'<span class="muted">—</span>'}</td>
     <td class="r">${r?`<button class="btn sm pri" data-inv="${p.slug}">${ic('copy',13)} Приглашение</button> <button class="btn sm" data-mk="${p.slug}" data-w="${esc(p.who)}" data-k="${p.kind}" title="Пересоздать файл со свежими данными">Обновить</button> <button class="btn sm" data-dl="${p.slug}" title="Скачать файл">${ic('dl',13)}</button>${hasGh?` <button class="btn sm" data-pub="${p.slug}" title="Положить на сайт">${ic('cloud',13)}</button>`:''}`:`<button class="btn sm pri" data-mk="${p.slug}" data-w="${esc(p.who)}" data-k="${p.kind}">Создать</button>`}</td></tr>`};
-  el.innerHTML=`<div class="pghead"><div><h1>Доступы</h1><p class="muted">Ссылки только для просмотра: главбух видит все списки, менеджер — только свои договоры.</p></div><div class="row"><button class="btn pri" id="ac-all">${ic('cloud',16)} Создать и опубликовать всем</button><button class="btn" id="ac-zip">${ic('dl',16)} Скачать всё одним ZIP</button></div></div>
+  el.innerHTML=`<div class="pghead"><div><h1>Доступы</h1><p class="muted">Две ссылки только для просмотра: главбух видит списки по Описи и 1С, ИТ-отдел — только что не загружено в СХЭД. Менеджерам доступ не нужен — им уходят Excel-файлы из раздела «Выгрузки».</p></div><div class="row"><button class="btn pri" id="ac-all">${ic('cloud',16)} Создать и опубликовать всем</button><button class="btn" id="ac-zip">${ic('dl',16)} Скачать всё одним ZIP</button></div></div>
   <ol class="steps"><li><b>Создать</b> — приложение делает файл с данными человека и пароль.</li><li><b>Опубликовать</b> — файл кладётся на сайт в папку <span class="mono">access</span>${hasGh?'.':' (подключите GitHub в «Настройки → Синхронизация», либо скачайте ZIP и положите папку сами).'}</li><li><b>Отправить приглашение</b> — ссылка и пароль одним сообщением.</li></ol>
-  <div class="card tblw"><div class="tscroll"><table class="tbl"><thead><tr><th>Кто</th><th>Состояние</th><th>Пароль</th><th></th></tr></thead><tbody>${grp('Бухгалтерия',people.filter(p=>p.kind==='acc'))}${grp('Менеджеры',people.filter(p=>p.kind==='mgr'))}</tbody></table></div></div>
-  <details class="fold"><summary><b>Что важно знать</b></summary><div class="fb"><ul class="sm ul"><li>Данные в файле — снимок на момент создания. После новой сверки нажмите «Обновить».</li><li>Менеджер видит статусы, но не ваши комментарии и не чужие договоры.</li><li>Если пароль попал не к тому человеку — удалите файл с сайта и создайте новый.</li><li>Чтобы открывать файлы договоров, у человека должна быть папка с архивами.</li></ul></div></details>`;
+  <div class="card tblw"><div class="tscroll"><table class="tbl"><thead><tr><th>Кто</th><th>Состояние</th><th>Пароль</th><th></th></tr></thead><tbody>${people.map(row).join('')}</tbody></table></div></div>
+  <details class="fold"><summary><b>Что важно знать</b></summary><div class="fb"><ul class="sm ul"><li>Данные в файле — снимок на момент создания. После новой сверки нажмите «Обновить».</li><li>ИТ-отдел видит только данные по СХЭД, без 1С и без ваших комментариев.</li><li>Если пароль попал не к тому человеку — удалите файл с сайта и создайте новый.</li><li>Чтобы открывать файлы договоров, у человека должна быть папка с архивами.</li></ul></div></details>`;
   const mk=async(slug,who,kind,silent)=>{const r=await buildAccess(who,kind);if(!silent){toast('Файл доступа создан');V.access(el)}return r};
   $$('[data-mk]',el).forEach(b=>b.onclick=()=>mk(b.dataset.mk,b.dataset.w,b.dataset.k));
   $$('[data-inv]',el).forEach(b=>b.onclick=()=>copyText(inviteText(b.dataset.inv),'приглашение'));
@@ -4235,21 +4339,21 @@ V.access=function(el){
   };
 };
 /* ---- режим просмотра ---- */
-const VIEW_NAV={acc:['overview','contracts','managers','ctrl'],mgr:['overview','contracts','ctrl']};
+const VIEW_NAV={acc:['overview','contracts','managers','ctrl'],mgr:['overview','contracts','ctrl'],it:['overview','contracts']};
 function viewOverview(el){
-  const K=KPI;const mine=VIEW.kind==='mgr';const rows=slaRows();const over=rows.filter(r=>r.over).length;
+  const K=KPI;const mine=VIEW.kind==='mgr';const it=VIEW.kind==='it';const over=0;
   const todo=[];
   if(!HIDE()&&K.sxbad)todo.push([`${num(K.sxbad)} ${plural(K.sxbad,'договор','договора','договоров')} нет в СХЭД и в архивах`,'bad','#contracts',{sx:['no']}]);
   const arch=HIDE()?0:CON.filter(c=>inScope(c)&&c.sx==='arch').length;if(arch)todo.push([`${num(arch)} лежат в архивах, но не в СХЭД`,'warn','#contracts',{sx:['arch']}]);
-  if(K.c1bad)todo.push([`${num(K.c1bad)} нет в 1С`,'bad','#contracts',{c1:['cpnodoc','nocp','none']}]);
-  if(K.c1warn)todo.push([`${num(K.c1warn)} в 1С нужно проверить`,'warn','#contracts',{c1:['generic','datediff','numoth','nonum','cpdate','closed','dup']}]);
-  if(K.sbOn&&K.sbbad)todo.push([`${num(K.sbbad)} нет в СБИС`,'bad','#contracts',{sb:['nocp','cpnodoc','none','generic']}]);
+  if(!it&&K.c1bad)todo.push([`${num(K.c1bad)} нет в 1С`,'bad','#contracts',{c1:['cpnodoc','nocp','none']}]);
+  if(!it&&K.c1warn)todo.push([`${num(K.c1warn)} в 1С нужно проверить`,'warn','#contracts',{c1:['generic','datediff','numoth','nonum','cpdate','closed','dup']}]);
+  if(!it&&K.sbOn&&K.sbbad)todo.push([`${num(K.sbbad)} нет в СБИС`,'bad','#contracts',{sb:['nocp','cpnodoc','none','generic']}]);
   const ms=Object.entries(K.byMgr).filter(([k,v])=>v.open>0).sort((a,b)=>b[1].open-a[1].open).slice(0,12).map(([m,v])=>({l:m,segs:[{v:v.open,c:'var(--accent)',t:'открыто'},{v:v.done,c:'var(--ok)',t:'закрыто'}],t:v.open,go:'#managers/'+encodeURIComponent(m)}));
-  el.innerHTML=`<div class="pghead"><div><h1>${mine?'Мои договоры':'Сводка для главбуха'}</h1><p class="muted">Режим только для просмотра · данные на ${esc(DATA.built)}${DATA.gen?' · обновлено '+new Date(DATA.gen).toLocaleDateString('ru-RU'):''}</p></div></div>
-  <div class="hero"><div class="card herocard"><div class="ringw">${ring(K.total?K.full/K.total*100:0,132,'var(--ok)')}</div><div><h2>Сведено полностью</h2><p class="big">${num(K.full)} из ${num(K.total)}</p><p class="muted">${K.open? `Требуют действий: ${num(K.open)}${over?`, из них просрочено более ${slaLimit()} дн.: ${num(over)}`:''}.`:'Всё сведено.'}</p></div></div>
-  <div class="kpis">${kpi('Нет в 1С',num(K.c1bad),`ещё ${num(K.c1warn)} — проверить`,K.c1bad?'bad':'ok','#contracts',{c1:['cpnodoc','nocp','none']})}${HIDE()?'':kpi('Нет в СХЭД и в архивах',num(K.sxbad),`ещё ${num(K.sxwarn)} — частично/в архиве`,K.sxbad?'bad':'ok','#contracts',{sx:['no']})}${K.sbOn?kpi('Нет в СБИС',num(K.sbbad),'',K.sbbad?'bad':'ok','#contracts',{sb:['nocp','cpnodoc','none','generic']}):''}</div></div>
+  el.innerHTML=`<div class="pghead"><div><h1>${mine?'Мои договоры':it?'СХЭД: что не загружено':'Сводка для главбуха'}</h1><p class="muted">Режим только для просмотра · данные на ${esc(DATA.built)}${DATA.gen?' · обновлено '+new Date(DATA.gen).toLocaleDateString('ru-RU'):''}</p></div></div>
+  <div class="hero"><div class="card herocard"><div class="ringw">${ring(K.total?(it?K.total-K.sxbad:K.full)/K.total*100:0,132,'var(--ok)')}</div><div><h2>${it?'Есть в СХЭД':'Сведено полностью'}</h2><p class="big">${num(it?K.total-K.sxbad:K.full)} из ${num(K.total)}</p><p class="muted">${it?(K.sxbad?`Не загружено в СХЭД: ${num(K.sxbad)}.`:'Всё загружено.'):K.open?`Требуют действий: ${num(K.open)}.`:'Всё сведено.'}</p></div></div>
+  <div class="kpis">${it?'':kpi('Нет в 1С',num(K.c1bad),`ещё ${num(K.c1warn)} — проверить`,K.c1bad?'bad':'ok','#contracts',{c1:['cpnodoc','nocp','none']})}${HIDE()?'':kpi('Нет в СХЭД и в архивах',num(K.sxbad),`ещё ${num(K.sxwarn)} — частично/в архиве`,K.sxbad?'bad':'ok','#contracts',{sx:['no']})}${K.sbOn?kpi('Нет в СБИС',num(K.sbbad),'',K.sbbad?'bad':'ok','#contracts',{sb:['nocp','cpnodoc','none','generic']}):''}</div></div>
   <div class="cols2"><section class="card"><h3>Что сделать</h3><div class="todo">${todo.map(t=>`<div class="ti ${t[1]}" data-go="${t[2]}" data-preset='${esc(JSON.stringify(t[3]))}'><div><b>${t[0]}</b></div>${ic('chev')}</div>`).join('')||'<p class="muted">Открытых вопросов нет.</p>'}</div></section>
-  ${mine?'':`<section class="card"><h3>Нагрузка по менеджерам <small class="muted">открытых вопросов</small></h3>${ms.length?bars(ms):'<p class="muted">Открытых вопросов нет.</p>'}</section>`}</div>`;
+  ${mine||it?'':`<section class="card"><h3>Нагрузка по менеджерам <small class="muted">открытых вопросов</small></h3>${ms.length?bars(ms):'<p class="muted">Открытых вопросов нет.</p>'}</section>`}</div>`;
 }
 
 /* ===== Трекер доработок ===== */
@@ -4350,9 +4454,8 @@ const IDEAS=[
  {id:'pack',t:'Готовые пакеты файлов для загрузки в СХЭД',d:'По каждому менеджеру или году — один архив с файлами, которые ещё не загружены (договор + приложения), в нужной структуре папок. Собирается по вашему запросу из архивов.'},
  {id:'report',t:'Ежемесячный отчёт для главбуха (PDF)',d:'Одна страница: что сведено, что осталось, динамика за месяц, топ менеджеров с открытыми вопросами. Кнопка «Отчёт для главбуха (PDF)» — на обзоре.'},
  {id:'notify',t:'Уведомления о новых пропусках',d:'Письмо или сообщение в Telegram, когда в новой выгрузке 1С/СБИС появляются договоры без пары. Требует небольшой серверной части — обсудим, если нужно.'},
- {id:'roles',t:'Доступ для главбуха и менеджеров (только просмотр)',d:'Отдельные ссылки: главбух видит свои списки, менеджер — только свои договоры, без права что-то менять.'},
- {id:'ocr',t:'Проверка атрибутов СХЭД по тексту договора',d:'Сравнение того, что ИИ определил в СХЭД (дата, направление, контрагент), с реестром — быстрые списки ошибок распознавания для доработки промптов.'},
- {id:'sla',t:'Срок «жизни» вопроса',d:'Сколько дней договор висит без сведения: подсвечивать то, что просрочено более 30 дней, и показывать менеджерам рейтинг.'}
+ {id:'roles',t:'Доступ для главбуха и ИТ-отдела (только просмотр)',d:'Отдельные ссылки: главбух видит свои списки, менеджер — только свои договоры, без права что-то менять.'},
+ {id:'ocr',t:'Проверка атрибутов СХЭД по тексту договора',d:'Сравнение того, что ИИ определил в СХЭД (дата, направление, контрагент), с реестром — быстрые списки ошибок распознавания для доработки промптов.'}
 ];
 V.ideas=function(el){
   const st=id=>ST.ideas[id]?.s||'new';
@@ -4390,11 +4493,21 @@ function migrateIdeas(){
 
 /* ===== Настройки ===== */
 V.settings=function(el,sub){
-  const T=V.settings.tab=(['archive','sync','view','pw'].includes(sub)?sub:V.settings.tab)||'archive';
+  const T=V.settings.tab=(['period','archive','sync','view','pw'].includes(sub)?sub:V.settings.tab)||'period';
   const pane=(k,h)=>`<div data-pane="${k}" ${T===k?'':'hidden'}>${h}</div>`;
   const g=SYNC.cfg()||{repo:'',branch:'main',path:'sync/state.bin',token:''};
-  el.innerHTML=`<div class="pghead"><div><h1>Настройки</h1><p class="muted">Папка с архивами, синхронизация, отображение и пароль.</p></div></div>
-  <div class="tabs">${[['archive','Папка с архивами'],['sync','Синхронизация и копии'],['view','Отображение'],['pw','Пароль']].map(([k,l])=>`<a data-t="${k}" class="${T===k?'on':''}">${l}</a>`).join('')}</div>
+  el.innerHTML=`<div class="pghead"><div><h1>Настройки</h1><p class="muted">Период документов, папка с архивами, синхронизация, отображение и пароль.</p></div></div>
+  <div class="tabs">${[['period','Период'],['archive','Папка с архивами'],['sync','Синхронизация и копии'],['view','Отображение'],['pw','Пароль']].map(([k,l])=>`<a data-t="${k}" class="${T===k?'on':''}">${l}</a>`).join('')}</div>
+  ${pane('period',`<section class="card" style="max-width:780px"><h3>${ic('calendar',20)} Период документов</h3>
+    <p class="muted sm">За какой период показывать договоры. Выбранный период действует <b>везде</b>: в приложении, в сверке, в отчётах и во всех Excel-файлах. Договоры вне периода не удаляются — они просто скрыты.</p>
+    <div class="prchips" id="pr-presets"></div>
+    <div class="prgrid"><label>С даты<input type="date" id="pr-from" class="inp"></label><label>По дату<input type="date" id="pr-to" class="inp"></label></div>
+    <p class="muted sm" style="margin-top:-4px">Оставьте поле пустым, чтобы не ограничивать период с этой стороны.</p>
+    <div class="callout" id="pr-cnt"></div>
+    <h4 style="margin-top:20px">Отдельная дата для файлов менеджерам и главбуху</h4>
+    <p class="muted sm">Главбух просил включать в свои файлы только договоры, начиная с определённой даты. Эта дата <b>добавляется</b> к общему периоду, но только в файлах для менеджеров и главбуха (задолженность, «Нет в 1С», отчёты).</p>
+    <div class="prgrid"><label>С даты<input type="date" id="pr-mg" class="inp"></label><div class="row" style="align-items:flex-end"><button class="btn sm" id="pr-mg-def" type="button">27.11.2024</button><button class="btn sm" id="pr-mg-off" type="button">Не ограничивать</button></div></div>
+    <div class="row end"><button class="btn" id="pr-reset" type="button">Сбросить: с 2022 года</button><button class="btn pri" id="pr-save" type="button">Применить период</button></div></section>`)}
   ${pane('archive',`<section class="card"><h3>${ic('folder',20)} Папка с архивами — чтобы документы открывались по клику</h3>
     <p class="muted sm">Выберите один раз папку «Архив СХЭД» (на рабочем столе), куда сложены все части архивов — zip, а также файлы вида «….zip.000 / .001» (они читаются без склейки), или распакованные папки. После этого у каждого документа и приложения работает кнопка «Открыть файл». Файлы никуда не загружаются. Работает в Google Chrome и Microsoft Edge на компьютере; на каждом компьютере папку нужно выбрать отдельно.</p>
     ${!ARC.supported?'<div class="callout warn sm"><b>Этот браузер не поддерживает открытие файлов с компьютера.</b> Откройте приложение в Chrome или Edge.</div>':`<div class="row"><b id="ar-st">${ARC.root?(ARC.ok?'Выбрана папка «'+esc(ARC.name)+'»':'Папка «'+esc(ARC.name)+'» выбрана, нужно подтвердить доступ'):'Папка не выбрана'}</b></div>
@@ -4409,15 +4522,34 @@ V.settings=function(el,sub){
     <p class="muted sm" id="gh-st">${SYNC.cfg()?'Подключено. Изменения отправляются автоматически.':'Не подключено — данные сохраняются только на этом устройстве.'}</p></section>
   <section class="card"><h3>${ic('dl',20)} Резервная копия</h3><p class="muted sm">Скачайте копию всех ваших отметок, трекера и загрузок или восстановите её из файла.</p><div class="row"><button class="btn" id="bk-x">Скачать копию</button><label class="btn">Восстановить из файла<input type="file" id="bk-i" accept=".json,.bin" hidden></label></div></section></div>`)}
   ${pane('view',`<section class="card" style="max-width:640px"><h3>${ic('gear',20)} Отображение</h3><div class="form">
-    <label>Показывать договоры с года<select id="st-from" class="inp">${[2014,2018,2020,2021,2022,2023,2024,2025].map(y=>`<option ${y===(ST.settings.from||2022)?'selected':''}>${y}</option>`).join('')}</select></label>
     <label>Начало пути к архивам (для копирования путей)<input id="st-prefix" class="inp" placeholder="например, D:\\СХЭД\\ или \\\\server\\archive\\" value="${esc(ST.settings.prefix||'')}"></label>
-    <label>Цветовая схема<div class="pal" id="st-pal">${Object.entries(PALS).map(([k,[n,a,b,c]])=>`<button type="button" data-p="${k}" class="${(LS.get('sxed_pal','soft')===k)?'on':''}"><i style="background:linear-gradient(135deg,${a},${b} 60%,${c})"></i>${n}</button>`).join('')}</div></label>
+    <label>Цветовая схема<div class="pal" id="st-pal">${Object.entries(PALS).map(([k,[n,a,b,c]])=>`<button type="button" data-p="${k}" class="${(LS.get('sxed_pal','aurora')===k)?'on':''}"><i style="background:linear-gradient(135deg,${a},${b} 60%,${c})"></i>${n}</button>`).join('')}</div></label>
     <label class="sw"><input type="checkbox" id="st-att" ${ST.settings.checkAtt?'checked':''}><span>Проверять, что приложения к договорам (спецификации, допсоглашения) загружены в СХЭД (по умолчанию выключено: их загружают в СХЭД отдельно из архивов)</span></label>
     <label class="sw"><input type="checkbox" id="st-other" ${ST.settings.otherSrc?'checked':''}><span>Показывать менеджерам, руководителям и главбуху также СХЭД, СБИС и архивы (по умолчанию им видны только Опись и 1С — СХЭД нужен только вам)</span></label>
     <label>Тема<select id="st-theme" class="inp"><option value="auto">Как в системе</option><option value="light">Светлая</option><option value="dark">Тёмная</option></select></label></div><div class="row"><button class="btn pri" id="st-save">Сохранить</button></div></section>`)}
   ${pane('pw',`<section class="card" style="max-width:640px"><h3>${ic('lock',20)} Пароль и данные</h3><p class="muted sm">Данные по договорам лежат в файле <b>data.bin</b>, зашифрованном вашим паролем — даже в публичном репозитории их не прочитать. Можно задать новый пароль: приложение выдаст новый файл data.bin, который нужно заменить в репозитории.</p><div class="row"><button class="btn" id="pw-ch">Сменить пароль</button><button class="btn" id="pw-fg">Забыть пароль на этом устройстве</button></div>
   <p class="muted sm">Данные из поставки: ${esc(DATA.built)} · договоров ${num(CON.length)} · документов ${num(DOCS.length)}</p></section>`)}`;
   $$('.tabs a',el).forEach(a=>a.onclick=()=>GOTO('#settings/'+a.dataset.t));
+  /* --- вкладка «Период» --- */
+  {const F=$('#pr-from',el),Tt=$('#pr-to',el),M=$('#pr-mg',el);
+    F.value=perFrom();Tt.value=perTo();M.value=mgFloor();
+    const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    const now=new Date(),Y=now.getFullYear();const back=new Date(now);back.setFullYear(Y-1);back.setDate(back.getDate()+1);
+    const PRE=[['С 2022 года','2022-01-01',''],['С 27.11.2024','2024-11-27',''],[Y+' год',Y+'-01-01',Y+'-12-31'],[(Y-1)+' год',(Y-1)+'-01-01',(Y-1)+'-12-31'],['Последние 12 месяцев',iso(back),''],['Всё время','','']];
+    const paint=()=>{
+      const pf=F.value,pt=Tt.value;const all=CON.filter(c=>c.k==='o');const n=all.filter(c=>inPer(c,pf,pt)).length;
+      const bad=pf&&pt&&pf>pt;
+      $('#pr-cnt',el).className='callout '+(bad?'bad':'ok');
+      $('#pr-cnt',el).innerHTML=bad?'<b>Дата «С» позже даты «По».</b> Поменяйте их местами.':`<b>В период попадёт ${num(n)} из ${num(all.length)} договоров Описи</b><p class="sm">${!pf&&!pt?'Период не ограничен — видны все договоры.':'Скрыто: '+num(all.length-n)+'. Без даты в Описи считаются по году.'}</p>`;
+      $$('#pr-presets button',el).forEach(b=>b.classList.toggle('on',b.dataset.f===pf&&b.dataset.t===pt))};
+    $('#pr-presets',el).innerHTML=PRE.map(([l,f,t])=>`<button type="button" class="btn sm" data-f="${f}" data-t="${t}">${l}</button>`).join('');
+    $$('#pr-presets button',el).forEach(b=>b.onclick=()=>{F.value=b.dataset.f;Tt.value=b.dataset.t;paint()});
+    F.oninput=Tt.oninput=paint;paint();
+    $('#pr-mg-def',el).onclick=()=>{M.value='2024-11-27'};$('#pr-mg-off',el).onclick=()=>{M.value=''};
+    const apply=(pf,pt,mg)=>{if(pf&&pt&&pf>pt){toast('Дата «С» позже даты «По»','bad');return}
+      ST.settings={...ST.settings,pFrom:pf,pTo:pt,from:pf?+pf.slice(0,4):2000,mgFrom:mg};REG=null;touch();computeKpi();updPerChip();toast('Период применён: '+perText(),'ok',3500);route()};
+    $('#pr-save',el).onclick=()=>apply(F.value||'',Tt.value||'',M.value||'');
+    $('#pr-reset',el).onclick=()=>apply('2022-01-01','',mgFloor());}
   $('#st-theme',el).value=LS.get('sxed_theme','auto');
   $$('#st-pal button',el).forEach(b=>b.onclick=()=>{LS.set('sxed_pal',b.dataset.p);applyTheme();$$('#st-pal button',el).forEach(x=>x.classList.toggle('on',x===b))});
   $('#st-theme',el).onchange=e=>{LS.set('sxed_theme',e.target.value);applyTheme()};
@@ -4427,7 +4559,7 @@ V.settings=function(el,sub){
     try{const cov=await ARC.verify((i,n)=>{const b=$('#av-b',el);if(b){b.style.width=(i/n*100)+'%';$('#av-t',el).textContent=`Читаю архивы: ${i} из ${n}`}});box.innerHTML=covHTML(cov);if(V.cur==='overview')route()}catch(e){box.innerHTML='<div class="callout bad"><b>'+esc(e.message||e)+'</b></div>'}av.disabled=false};
   const af=$('#ar-off',el);if(af)af.onclick=async()=>{await ARC.forget();V.settings(el)};
   const at=$('#ar-test',el);if(at)at.onclick=()=>{const i=DOCS.findIndex(d=>d[11]===DOCS[DOCS.length-1][11]);ARC.openDoc(DOCS.length-1)};
-  $('#st-save',el).onclick=()=>{ST.settings={...ST.settings,from:+$('#st-from',el).value,prefix:$('#st-prefix',el).value.trim(),otherSrc:$('#st-other',el).checked,checkAtt:$('#st-att',el).checked};LS.set('sxed_theme',$('#st-theme',el).value);applyTheme();REG=null;touch();computeKpi();toast('Сохранено')};
+  $('#st-save',el).onclick=()=>{ST.settings={...ST.settings,prefix:$('#st-prefix',el).value.trim(),otherSrc:$('#st-other',el).checked,checkAtt:$('#st-att',el).checked};LS.set('sxed_theme',$('#st-theme',el).value);applyTheme();REG=null;touch();computeKpi();toast('Сохранено')};
   $('#gh-save',el).onclick=async()=>{const c={repo:$('#gh-repo',el).value.trim(),branch:$('#gh-br',el).value.trim()||'main',path:$('#gh-path',el).value.trim()||'sync/state.bin',token:$('#gh-tok',el).value.trim()};if(!/^[\w.-]+\/[\w.-]+$/.test(c.repo)||!c.token){toast('Укажите репозиторий (логин/название) и токен','bad');return}LS.set('sxed_gh',c);await SYNC.sync(true);V.settings(el)};
   const off=$('#gh-off',el);if(off)off.onclick=()=>{LS.del('sxed_gh');SYNC.setStatus('off');toast('Синхронизация отключена');V.settings(el)};
   $('#bk-x',el).onclick=()=>download('СХЭД_резервная_копия_'+today()+'.json',new Blob([JSON.stringify(ST)],{type:'application/json'}));
@@ -4436,8 +4568,8 @@ V.settings=function(el,sub){
   $('#pw-ch',el).onclick=()=>openModal(`<h3>Новый пароль</h3><p class="muted sm">Пароль нельзя восстановить: если вы его забудете, данные не прочитать. Запишите его в надёжном месте.</p><input class="inp" id="np1" type="password" placeholder="Новый пароль (не короче 8 символов)"><input class="inp" id="np2" type="password" placeholder="Повторите пароль"><div class="row end"><button class="btn pri" id="np-ok">Создать новый data.bin</button></div>`,m=>{m.querySelector('#np-ok').onclick=async()=>{const a=m.querySelector('#np1').value,b=m.querySelector('#np2').value;if(a.length<8||a!==b){toast('Пароли должны совпадать и быть не короче 8 символов','bad');return}
     const salt=crypto.getRandomValues(new Uint8Array(16));const key=await deriveKey(a,salt,ITER);const blob=await encryptBlob(DATA,key,salt,ITER);download('data.bin',new Blob([blob]));KEY=key;SALT=salt;LS.del('sxed_key');ST.updated=nowTs();await IDB.set('state',ST);closeModal();toast('Скачан новый data.bin. Замените им старый файл в репозитории.','ok',9000);if(SYNC.cfg())SYNC.sync(false)}});
 };
-const PALS={"soft": ["Нежная", "#e3f1ed", "#ece8f6", "#4f9487"], "lagoon": ["Лагуна", "#b9e5dc", "#c8e0f7", "#1f8a7d"], "lavender": ["Лаванда", "#d8cffb", "#fbd5e6", "#6a58d0"], "peach": ["Персик", "#fdd5bd", "#fbe6b0", "#c85a3a"], "sky": ["Небо", "#c5d9fb", "#d3ecf6", "#3669cf"], "classic": ["Классика", "#f6f4ef", "#f6f4ef", "#2c7a6b"]};
-function applyTheme(){const t=LS.get('sxed_theme','auto');const dark=t==='dark'||(t==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);const d=document.documentElement;d.dataset.theme=dark?'dark':'light';const p=LS.get('sxed_pal','soft');d.dataset.pal=PALS[p]?p:'lagoon'}
+const PALS={"aurora": ["Аврора", "#c7c4ff", "#b9e9f7", "#5b5bd6"], "sunset": ["Закат", "#ffbe9a", "#ffa9c4", "#e8590c"], "emerald": ["Изумруд", "#8fe5c1", "#a9e9ee", "#059669"], "ocean": ["Океан", "#9bd3f5", "#9eeadf", "#0284c7"], "sakura": ["Сакура", "#ffbcd5", "#e0c2ff", "#d6336c"], "graphite": ["Графит", "#d3d8e1", "#e1e5ec", "#475569"], "lime": ["Лайм", "#cdef82", "#a2ebcd", "#65a30d"], "neon": ["Неон", "#eeaeff", "#96eeff", "#c026d3"], "gold": ["Золото", "#fbe284", "#fbd3ab", "#ca8a04"], "soft": ["Нежная", "#e3f1ed", "#ece8f6", "#4f9487"], "lagoon": ["Лагуна", "#b9e5dc", "#c8e0f7", "#1f8a7d"], "lavender": ["Лаванда", "#d8cffb", "#fbd5e6", "#6a58d0"], "peach": ["Персик", "#fdd5bd", "#fbe6b0", "#c85a3a"], "sky": ["Небо", "#c5d9fb", "#d3ecf6", "#3669cf"], "classic": ["Классика", "#f6f4ef", "#f6f4ef", "#2c7a6b"]};
+function applyTheme(){const t=LS.get('sxed_theme','auto');const dark=t==='dark'||(t==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);const d=document.documentElement;d.dataset.theme=dark?'dark':'light';const p=LS.get('sxed_pal','aurora');d.dataset.pal=PALS[p]?p:'lagoon'}
 try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>applyTheme())}catch(e){}
 
 function covHTML(c){
@@ -4448,23 +4580,31 @@ function covHTML(c){
 
 /* ===== запуск приложения ===== */
 const NAVG=[
-  {items:[['overview','Старт','home'],['today','Сегодня','check'],['compare','Сверка','scale']]},
-  {t:'Мои задачи',items:[['exports','Выгрузки — скачать Excel','dl'],['managers','Менеджеры — кому что','users'],['contracts','Найти договор','file'],['pairs','Спорные совпадения','scale'],['intake','Новый документ','plus'],['report','Отчёт для главбуха','print']]},
-  {t:'Ещё',fold:true,items:[['recon','Что где есть','scale'],['uploads','Источники и загрузки','up'],['docs','Документы в архивах','folder'],['attach','Приложения','clip'],['pack','Пакеты в СХЭД','box'],['ctrl/orig','Оригиналы','shield'],['ctrl/edo','ЭДО или бумага','check'],['ctrl/dups','Дубли','copy'],['ctrl/attr','Атрибуты СХЭД','search'],['ctrl/sla','Срок вопросов','warn'],['ctrl/ver','Версии описи','list'],['access','Доступы','key'],['tracker','Трекер доработок','list'],['ideas','Идеи','bulb'],['settings','Настройки','gear']]}
+  {items:[['overview','Старт','home'],['compare','Сверка','scale'],['exports','Выгрузки менеджерам','users'],['contracts','Найти договор','file']]},
+  {t:'Работа',items:[['managers','Менеджеры','users'],['report','Отчёт для главбуха','print'],['pairs','Спорные совпадения','scale']]},
+  {t:'Ещё',fold:true,items:[['today','Сегодня','check'],['intake','Новый документ','plus'],['recon','Что где есть','scale'],['uploads','Источники и загрузки','up'],['docs','Документы в архивах','folder'],['attach','Приложения','clip'],['pack','Пакеты в СХЭД','box'],['ctrl/orig','Оригиналы','shield'],['ctrl/edo','ЭДО или бумага','check'],['ctrl/dups','Дубли','copy'],['ctrl/attr','Атрибуты СХЭД','search'],['ctrl/ver','Версии описи','list'],['access','Доступ: главбух и ИТ','key'],['tracker','Трекер доработок','list'],['ideas','Идеи','bulb'],['settings','Настройки','gear']]}
 ];
-const navAllowed=p=>{if(!VIEW)return true;const[n,s]=p.split('/');return VIEW_NAV[VIEW.kind].includes(n)&&(n!=='ctrl'||['orig','edo','sla'].includes(s))};
+const navAllowed=p=>{if(!VIEW)return true;const[n,s]=p.split('/');return VIEW_NAV[VIEW.kind].includes(n)&&(n!=='ctrl'||['orig','edo'].includes(s))};
 const navHTML=()=>NAVG.map(g=>{const its=g.items.filter(([p])=>navAllowed(p));if(!its.length)return '';const open=!g.fold||LS.get('sxed_nav_more',false);
   return `<div class="ng ${g.fold?'fold':''} ${open?'open':''}">${g.t?`<div class="nh" ${g.fold?'data-fold="1"':''}>${g.t}${g.fold?ic('chev',13):''}</div>`:''}<div class="ni">${its.map(([p,l,i])=>`<a href="#${p}" data-n="${p}">${ic(i,18)}<span>${l}</span><em id="nb-${p.replace('/','-')}"></em></a>`).join('')}</div></div>`}).join('');
 const QS=new URLSearchParams(location.search);const PKG=(QS.get('u')||'').replace(/[^a-z0-9_-]/gi,'');
 const KEYN=PKG?'sxed_key_'+PKG:'sxed_key';
 function shell(){
   document.getElementById('app').innerHTML=`<div class="shell"><aside class="side" id="side"><div class="brand"><div class="logo">${ic('folder',22)}</div><div><b>СХЭД · Учёт</b><span>ТЕХНОСТАЙЛ</span></div></div><nav>${navHTML()}</nav><div class="sidef">${VIEW?`<div class="syncchip" data-s="ok"><i></i><span class="t">Только просмотр · ${esc(VIEW.who)}</span></div>`:`<div id="syncchip" class="syncchip" data-s="off" title="Нажмите, чтобы синхронизировать"><i></i><span class="t">Не подключено</span></div>`}<div class="muted sm">данные на ${esc(DATA.built)}</div></div></aside>
-  <div class="mainw"><header class="top"><button class="burger" id="burger" aria-label="Меню">${ic('list',22)}</button><button class="gsearch" id="gs">${ic('search',17)}<span>Поиск по договорам и документам</span><kbd>Ctrl K</kbd></button><button class="iconbtn" id="hnt" title="Подсказки: показать или скрыть">${ic('bulb',19)}</button><button class="iconbtn" id="thm" title="Тема">${ic('sun',19)}</button></header><main id="view"></main></div></div><div class="scrim" id="scrim"></div>`;
+  <div class="mainw"><header class="top"><button class="burger" id="burger" aria-label="Меню">${ic('list',22)}</button><button class="gsearch" id="gs">${ic('search',17)}<span>Поиск по договорам и документам</span><kbd>Ctrl K</kbd></button><button class="perchip" id="perchip" title="Период документов — нажмите, чтобы изменить"></button><button class="iconbtn" id="hnt" title="Подсказки: показать или скрыть">${ic('bulb',19)}</button><button class="iconbtn" id="palbtn" title="Цветовая схема"><i class="pdot"></i></button><button class="iconbtn" id="thm" title="Тема">${ic('sun',19)}</button></header><main id="view"></main></div></div><div class="scrim" id="scrim"></div>`;
   VIEWEL=$('#view');
   $$('.nh[data-fold]').forEach(h=>h.onclick=()=>{const g=h.parentNode;g.classList.toggle('open');LS.set('sxed_nav_more',g.classList.contains('open'))});
   $('#burger').onclick=()=>document.body.classList.toggle('navopen');$('#scrim').onclick=()=>document.body.classList.remove('navopen');
   document.body.classList.toggle('nohints',!LS.get('sxed_hints',true));
   $('#hnt').onclick=()=>{const on=!LS.get('sxed_hints',true);LS.set('sxed_hints',on);document.body.classList.toggle('nohints',!on);toast(on?'Подсказки включены':'Подсказки скрыты','info',1800)};
+  $('#palbtn').onclick=e=>{e.stopPropagation();const old=document.getElementById('palpop');if(old){old.remove();return}
+    const pop=document.createElement('div');pop.className='palpop';pop.id='palpop';
+    const draw=()=>{const cur=LS.get('sxed_pal','aurora');const mode=LS.get('sxed_theme','auto');
+      pop.innerHTML=`<h4>ЦВЕТОВАЯ СХЕМА</h4><div class="pp-g">${Object.entries(PALS).map(([k,[n,a,b,c]])=>`<button type="button" data-p="${k}" class="${cur===k?'on':''}"><i style="background:linear-gradient(135deg,${a},${b} 55%,${c})"></i>${n}</button>`).join('')}</div><div class="pp-m">${[['light','Светлая'],['dark','Тёмная'],['auto','Авто']].map(([v,l])=>`<button type="button" data-m="${v}" class="${mode===v?'on':''}">${l}</button>`).join('')}</div>`;
+      pop.querySelectorAll('[data-p]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();LS.set('sxed_pal',b.dataset.p);applyTheme();draw()});
+      pop.querySelectorAll('[data-m]').forEach(b=>b.onclick=ev=>{ev.stopPropagation();LS.set('sxed_theme',b.dataset.m);applyTheme();draw()})};
+    draw();document.body.appendChild(pop);
+    const off=ev=>{if(!pop.contains(ev.target)){pop.remove();document.removeEventListener('click',off)}};setTimeout(()=>document.addEventListener('click',off),0)};
   $('#thm').onclick=()=>{const cur=LS.get('sxed_theme','auto');const dark=document.documentElement.dataset.theme==='dark'||(cur==='auto'&&matchMedia('(prefers-color-scheme: dark)').matches);LS.set('sxed_theme',dark?'light':'dark');applyTheme()};
   $('#gs').onclick=globalSearch;
   if(!VIEW){$('#syncchip').onclick=()=>{if(SYNC.cfg())SYNC.sync(true);else GOTO('#settings')};
@@ -4484,10 +4624,10 @@ const HINTS={
   attach:['Приложения','Приложения, допсоглашения и спецификации к договорам, найденные в архивах. Помогает понять, чего не хватает в СХЭД.'],
   pack:['Пакеты в СХЭД','Сбор договоров и файлов в ZIP для загрузки в СХЭД: выберите договоры — получите папки с правильными названиями.'],
   report:['Отчёт для главбуха','Одна страница для отправки: что сведено, что осталось, по менеджерам — сколько договоров нужно догрузить в 1С. Скачайте PDF или «Excel: что догрузить в 1С» — там полный список по менеджерам.','Режим «Главбуху» показывает только Опись и 1С.'],
-  access:['Доступы','Создание ссылок «только просмотр» для менеджеров и руководителей: они видят свои цифры, ничего не меняя.'],
+  access:['Доступы','Две ссылки «только просмотр»: для главбуха (Опись и 1С) и для ИТ-отдела (что не загружено в СХЭД). Данные они видят, менять — не могут.'],
   tracker:['Трекер доработок','Список задач по доработке приложения и процесса. Для себя.'],
   ideas:['Идеи','Заметки и идеи по улучшению. Для себя.'],
-  settings:['Настройки','Тема, начало периода (с какого года считать договоры), путь к архивам, менеджеры, резервные копии.'],
+  settings:['Настройки','Период документов (для всего приложения и всех Excel), тема, путь к архивам, резервные копии.'],
   'ctrl/orig':['Оригиналы','Какие договоры есть только в скане и для каких нужно получить бумажный оригинал. Отмечайте «запросили / получили».'],
   'ctrl/edo':['ЭДО или бумага','Как подписан договор: через ЭДО или на бумаге. Помогает понять, нужен ли оригинал.'],
   'ctrl/dups':['Дубли','Договоры, которые встречаются в Описи или в 1С дважды. Отметьте, какие дубли нормальные.'],
@@ -4519,12 +4659,12 @@ function route(){
   if(v!=='overview'&&v!=='compare'&&v!=='today'&&!VIEW)remMount(VIEWEL);
   window.scrollTo(0,0);updBadges();
 }
-function updBadges(){
+function updPerChip(){const e=document.getElementById('perchip');if(!e)return;e.innerHTML=ic('calendar',15)+'<span>'+esc(perText())+'</span>';e.onclick=VIEW?null:()=>GOTO('#settings/period');e.style.cursor=VIEW?'default':'pointer'}
+function updBadges(){updPerChip();
   const set=(id,n,cls)=>{const e=$('#nb-'+id);if(e){e.textContent=n||'';e.className=cls||''}};
   try{
     set('ctrl-orig',origRows(false).filter(r=>!(r.q&&(r.q.s==='got'||r.q.s==='na'))&&!['empty','typo'].includes(r.cls)).length);
     set('ctrl-edo',edoRows(false).filter(r=>['e_sbis','p_noorig','p_sbis','e_scan'].includes(r.cls)).length);
-    set('ctrl-sla',slaRows().filter(r=>r.over).length,'bad');
     if(!VIEW){
       set('ctrl-dups',calcDups().filter(r=>!ST.dupok[r.key]?.s).length);set('ctrl-attr',calcAttr().rows.filter(r=>['date','cp','num'].includes(r.cls)).length);
       set('tracker',trRows().filter(r=>!/готов|выполн|закрыт|отлож/i.test(String(bf(r,'status')||r.status||''))).length);
@@ -4668,7 +4808,7 @@ async function allExcel(mode){
     const todo=mg?withTwo(()=>todoText(c)):todoText(c);
     return[c.y,c.cp,c.inn||'',c.num,fmtD(c.date),mgrLabel(c)||'','есть',(L1C[c.c1]||L1C.unk)[0],...(mg?[]:[(LSX[c.sx]||LSX.unk)[0],c.sb&&c.sb!=='unk'?(LSB[c.sb]||LSB.none)[0]:'не загружен',(c.docs||[]).length?'есть ('+c.docs.length+')':'нет']),d1,todo,m?.s?WORK[m.s][0]:''];
   });
-  await exportXLSX((mg?'Все_договоры_Опись_и_1С_':'Все_договоры_')+today()+'.xlsx',{'Договоры':{rows:[['Все договоры с '+(ST.settings.from||2022)+' года'+(mg?' — Опись и 1С':' — все источники')],['На '+fmtD(today())+' · '+rows.length+' договоров · фильтр в шапке таблицы'],[],head,...body],hdr:3,widths:[7,38,13,22,13,20,9,26,...(mg?[]:[24,22,12]),44,56,12],tone:(v,i,j)=>{const h=head[j];if(h==='Опись'&&v)return'ok';if(h==='Отметка'&&v)return v==='Готово'?'ok':v==='В работе'?'warn':v==='Не нужно'?'mute':'info';if(h==='Архив'&&v)return v.startsWith('есть')?'info':null;return null}}},{title:'Как читать — все договоры',readme:[
+  await exportXLSX((mg?'Все_договоры_Опись_и_1С_':'Все_договоры_')+today()+'.xlsx',{'Договоры':{rows:[['Все договоры '+perText()+''+(mg?' — Опись и 1С':' — все источники')],['На '+fmtD(today())+' · '+rows.length+' договоров · фильтр в шапке таблицы'],[],head,...body],hdr:3,widths:[7,38,13,22,13,20,9,26,...(mg?[]:[24,22,12]),44,56,12],tone:(v,i,j)=>{const h=head[j];if(h==='Опись'&&v)return'ok';if(h==='Отметка'&&v)return v==='Готово'?'ok':v==='В работе'?'warn':v==='Не нужно'?'mute':'info';if(h==='Архив'&&v)return v.startsWith('есть')?'info':null;return null}}},{title:'Как читать — все договоры',readme:[
     ['Что это','Полный список договоров из Описи с их статусом '+(mg?'в 1С.':'в 1С, СХЭД, СБИС и архивах.')],
     ['Зелёный','Договор найден, всё в порядке.','ok'],['Жёлтый','Данные есть, но не совпадают — нужна проверка.','warn'],['Красный','Договора нет там, где он должен быть.','bad'],['Серый','Не проверялось.','mute'],
     ...(mg?[]:[['Про даты','Дата договора в СХЭД может отличаться от Описи — СХЭД ставит самую позднюю дату подписания ЭДО. Это нормально.']]),
@@ -5238,7 +5378,7 @@ async function archBulkExcel(){
 /* --- C. спорные совпадения контрагентов --- */
 function c1ById(i){return C1.find(x=>x.i===i)||C1[i]}
 function pairsList(){
-  const from=ST.settings.from||2022;
+  const from=perYF();
   const P=new Map();
   const add=(c,r,src,type)=>{
     if(!r||!r.cp||!c.cp)return;
@@ -5337,7 +5477,7 @@ async function reportExcel(){
       ['Всего договоров в работе',K.total,''],['Сведено полностью',K.full,R.fullDelta==null?'—':(R.fullDelta>0?'+':'')+R.fullDelta],['Сведено, %',Math.round(R.pct)+'%',''],['Открытых вопросов',K.open,R.openDelta==null?'—':(R.openDelta>0?'+':'')+R.openDelta],['Закрыто в этом месяце',R.closed,''],['Просрочено',R.over,'']];
     sh={'Сводка':{rows:sum,hdr:DATEFLOOR?5:4,widths:[36,16,26]}};
     sh['Что осталось']={rows:[['Что осталось'],[],[],['Источник','Осталось','Было','Изменение','Комментарий'],...R.src.map(([l,v,b,s])=>[l,v==null?'—':v,b==null?'—':b,(v==null||b==null)?'—':v-b,s||''])],hdr:3,widths:[34,12,12,12,40],tab:XL_TAB.main};
-    if(R.top.length)sh['Менеджеры']={rows:[['Менеджеры с открытыми вопросами'],[],[],['Менеджер','Открыто','Закрыто','Всего','Просрочено','Самый давний, дн.'],...R.top.map(t=>[t.m,t.open,t.done,t.n,t.over,t.max||''])],hdr:3,widths:[28,10,10,10,12,16],tab:XL_TAB.warn,tone:(v,i,j)=>j===4&&v>0?'bad':null};
+    if(R.top.length)sh['Менеджеры']={rows:[['Менеджеры с открытыми вопросами'],[],[],['Менеджер','Открыто','Закрыто','Всего'],...R.top.map(t=>[t.m,t.open,t.done,t.n])],hdr:3,widths:[28,10,10,10],tab:XL_TAB.warn,tone:()=>null};
     const D=R.c1d;
     if(D.rows.length){
       const head=['№','Менеджер','Год','Контрагент','№ договора','Дата','Что в 1С','Что не сходится','Что сделать','Дней висит'];
@@ -5484,7 +5624,7 @@ async function diagData(){
     snapshots:snapDays.slice(-6).map(d=>{const s=ST.snaps[d]||{};return{date:d,total:s.t,full:s.f,open:s.o,c1:s.c1,sx:s.sx}}),
     sync:{configured:!!SYNC.cfg(),status:SYNC.status,lastOk:iso(SYNC.lastOk),hasRemoteSha:!!SYNC.sha},
     backups:{count:bk.length,last:bk[0]?iso(bk[0].at):null},
-    settings:{from:ST.settings&&ST.settings.from,mgFrom:ST.settings&&ST.settings.mgFrom,otherSrc:!!(ST.settings&&ST.settings.otherSrc),pal:LS.get('sxed_pal','soft'),theme:LS.get('sxed_theme','auto')},
+    settings:{from:ST.settings&&ST.settings.from,mgFrom:ST.settings&&ST.settings.mgFrom,otherSrc:!!(ST.settings&&ST.settings.otherSrc),pal:LS.get('sxed_pal','aurora'),theme:LS.get('sxed_theme','auto')},
     errors:(window.__errs||[]).slice(-20)
   };
 }
@@ -5507,7 +5647,7 @@ ICON.mail='<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-
 .dlt.up{color:var(--bad);font-weight:600}.dlt.dn{color:var(--ok);font-weight:600}.tl3{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.tl3>div{flex:1;min-width:170px}
 .mlbox textarea{width:100%;min-height:300px;font:13px/1.45 var(--mono,ui-monospace,monospace);resize:vertical}
 `;document.head.appendChild(st)})();
-{const g=NAVG.find(x=>x.t==='Мои задачи');if(g){g.items.splice(3,0,['terms','Сроки договоров','calendar'],['trend','Динамика по неделям','chart'],['similar','Похожие договоры','copy'])}}
+{const g=NAVG.find(x=>x.t==='Ещё');if(g){g.items.splice(2,0,['terms','Сроки договоров','calendar'],['trend','Динамика по неделям','chart'],['similar','Похожие договоры','copy'])}}
 
 /* ---- 1. Что делать дальше ---- */
 function nextSteps(c){
@@ -5685,8 +5825,8 @@ function lev1(a,b){ // true, если строки отличаются ровн
 }
 const SIM_L={same_date:['Одна дата, разные номера','warn'],typo:['Номера отличаются одним знаком','bad'],same_num:['Тот же номер, дата другая','warn']};
 function simPairs(all){
-  const from=ST.settings.from||2022;const G=new Map();
-  for(const c of CON){if(c.k!=='o'||c.y==null||c.y<from)continue;const k=c.inn||cpk(c.cp);if(!k)continue;if(!G.has(k))G.set(k,[]);G.get(k).push(c)}
+  const from=perYF();const G=new Map();
+  for(const c of CON){if(c.k!=='o'||!inPeriod(c))continue;const k=c.inn||cpk(c.cp);if(!k)continue;if(!G.has(k))G.set(k,[]);G.get(k).push(c)}
   const out=[];const dd=(a,b)=>Math.abs((new Date(a+'T00:00:00')-new Date(b+'T00:00:00'))/864e5);
   for(const L of G.values()){
     if(L.length<2||L.length>80)continue;
