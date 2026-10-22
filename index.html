@@ -1969,14 +1969,14 @@ function docRow(d){return `<div class="rec doc"><div><b>${esc(d[1])}</b> · ${es
 
 /* ===== Сверка: Опись · 1С · СХЭД · Архивы · СБИС ===== */
 V.recon=function(el,sub){
-  let T=sub||V.recon.tab||'all';if(!['all','c1','sx','sb'].includes(T))T='all';
+  let T=sub||V.recon.tab||'all';if(!['all','c1','sx','sb','c1sb','sxsb'].includes(T))T='all';
   V.recon.tab=T;
-  const tabs=[['all','Что где есть'],['c1','Договоры: Опись ↔ 1С'],['sx','Договоры: Опись ↔ СХЭД'],['sb','Договоры: Опись ↔ СБИС']];
+  const tabs=[['all','Что где есть'],['c1','Опись ↔ 1С'],['sx','Опись ↔ СХЭД'],['sb','Опись ↔ СБИС'],['c1sb','1С ↔ СБИС'],['sxsb','СХЭД ↔ СБИС']];
   el.innerHTML=`<div class="pghead"><div><h1>Что где есть</h1><p class="muted">Опись · 1С · СХЭД · Архивы · СБИС — по каждому типу документов: что есть в каждом источнике и чего где не хватает. Период: ${perText()}.</p></div>${T==='all'?`<div class="row"><button class="btn" id="rc-xall">${ic('dl',15)} Excel: всё по всем типам</button></div>`:''}</div>
   <div class="tabs">${tabs.map(([k,l])=>`<a data-t="${k}" class="${T===k?'on':''}">${l}</a>`).join('')}</div><div id="rc-b"></div>`;
   $$('.tabs a',el).forEach(a=>a.onclick=()=>V.recon(el,a.dataset.t));
   const b=$('#rc-b',el);
-  ({all:reconAll,c1:reconC1,sx:reconSX,sb:reconSB})[T](b);
+  ({all:reconAll,c1:reconC1,sx:reconSX,sb:reconSB,c1sb:b=>reconPair(b,'c1','sb'),sxsb:b=>reconPair(b,'sx','sb')})[T](b);
   const x=$('#rc-xall',el);if(x)x.onclick=regExportAll;
 };
 const GL={1:'✓',2:'≈',0:'✗'};
@@ -2107,6 +2107,46 @@ function reconSX(b){
 function reconSB(b){
   if(!SBIS.length){b.innerHTML=`<div class="card empty-state">${ic('cloud',40)}<h3>Выгрузка из СБИС не загружена</h3><p class="muted">Загрузите файл (xlsx или csv) со списком документов/договоров из СБИС — приложение найдёт договоры из описи, которых там нет, а также договоры в СБИС, которых нет в описи.</p><button class="btn pri" data-go="#uploads">Загрузить выгрузку СБИС</button></div>`;return}
   cardsByCode(b,'Опись ↔ СБИС','Для каждого договора из описи ищем договор в выгрузке СБИС по номеру, контрагенту и дате.',LSB,'sb',['ok','datediff','numoth','cpdate','cpnodoc','nocp'],'sb');
+}
+
+
+/* ===== договоры: попарная сверка двух источников (1С ↔ СБИС, СХЭД ↔ СБИС) ===== */
+function reconPair(b,A,B){
+  const R=reg(),items=R.items.dog,key=A+B;
+  const S=(V.recon.P=V.recon.P||{});if(!S[key])S[key]={mode:'all'};const st=S[key];
+  const nA=SRCN[A],nB=SRCN[B],pA=SRCP[A],pB=SRCP[B];
+  const off=[A,B].filter(s=>!R.have[s].dog.on);
+  if(off.length){
+    b.innerHTML=`<div class="card empty-state">${ic('cloud',40)}<h3>Не загружено: ${off.map(s=>SRCN[s]).join(', ')}</h3><p class="muted">Чтобы сверить ${nA} и ${nB}, нужны обе выгрузки по договорам. Загрузите недостающую на странице «Источники».</p><button class="btn pri" data-go="#uploads">Перейти к загрузке</button></div>`;return;
+  }
+  const rel=items.filter(it=>it.p[A]!=null&&it.p[B]!=null&&(hasIn(it,A)||hasIn(it,B)));
+  const cls=it=>{const a=hasIn(it,A),bb=hasIn(it,B);if(a&&bb)return (it.p[A]===2||it.p[B]===2)?'diff':'both';return a?'onlyA':'onlyB'};
+  const cnt={all:rel.length,both:0,diff:0,onlyA:0,onlyB:0};rel.forEach(it=>{const c=cls(it);cnt[c]++});
+  const modes=[['all','Все'],['onlyA','Есть в '+pA+', нет в '+pB],['onlyB','Есть в '+pB+', нет в '+pA],['diff','С расхождением'],['both','Совпадают']];
+  const pick=it=>st.mode==='all'||(st.mode==='both'?cls(it)==='both':cls(it)===st.mode);
+  b.innerHTML=`<div class="card"><h3>${nA} ↔ ${nB} <small class="muted">договоры</small></h3>
+  <p class="muted">Берём все договоры, найденные хотя бы в одном из двух источников (в том числе тех, которых нет в описи), и смотрим, есть ли каждый в обоих. Сверка по контрагенту (ИНН), номеру и дате. Период: ${perText()}.</p>
+  ${tileRow([['Договоров в сверке',num(cnt.all),'есть в '+pA+' или '+pB],['Совпадают',num(cnt.both+cnt.diff),'есть в обоих','ok'],['Есть в '+nA+', нет в '+nB,num(cnt.onlyA),'проверить '+nB,cnt.onlyA?'warn':'ok'],['Есть в '+nB+', нет в '+nA,num(cnt.onlyB),'проверить '+nA,cnt.onlyB?'warn':'ok'],['С расхождением',num(cnt.diff),'другая дата / номер',cnt.diff?'warn':'ok']])}
+  <div class="row" style="margin:12px 0 4px"><div class="seg" id="rp-m">${modes.map(([k,l])=>`<button data-m="${k}" class="${st.mode===k?'on':''}">${l}${k==='all'?'':' <small>'+num(k==='both'?cnt.both:cnt[k])+'</small>'}</button>`).join('')}</div></div>
+  <div id="rp-l"></div></div>`;
+  $$('#rp-m button',b).forEach(x=>x.onclick=()=>{st.mode=x.dataset.m;reconPair(b,A,B)});
+  const years=[...new Set(rel.map(i=>i.y).filter(y=>y!=null))].sort();
+  const sc=s=>({k:'p_'+s,l:SRCN[s],cls:'c',h:it=>glyph(it.p[s]),v:it=>it.p[s]==null?9:it.p[s],x:it=>it.p[s]==null?'не загружено':pLabel(it.p[s])});
+  const verdict=it=>{const c=cls(it);return c==='both'?'совпадает':c==='diff'?'есть в обоих, расхождение в дате/номере':c==='onlyA'?'нет в '+pB:'нет в '+pA};
+  listView($('#rp-l',b),{id:'pair_'+key,rows:()=>rel.filter(pick),file:'Сверка_'+nA+'_'+nB,sheet:(nA+'-'+nB).slice(0,28),size:50,sort:null,
+    search:it=>it.cp+' '+it.num+' '+(it.mgr||''),ph:'Поиск по контрагенту, номеру…',
+    filters:[{k:'y',l:'Год',opts:years.map(y=>[String(y),String(y)]),f:(it,v)=>String(it.y)===v}],
+    cols:[
+      {k:'cp',l:'Контрагент',h:it=>`<b>${esc(it.cp)}</b>${it.inn?`<small>ИНН ${esc(it.inn)}</small>`:''}`,v:it=>it.cp,x:it=>it.cp},
+      {k:'num',l:'№',h:it=>`<span class="mono">${esc(it.num||'—')}</span>`,v:it=>it.num,x:it=>it.num},
+      {k:'date',l:'Дата',h:it=>dateOrDash(it.date),v:it=>it.date||'',x:it=>fmtD(it.date)},
+      {k:'dir',l:'Напр.',h:it=>`<small class="muted">${esc(it.dir||'')}</small>`,v:it=>it.dir||'',x:it=>it.dir||''},
+      sc('op'),sc(A),sc(B),
+      {k:'vd',l:'Итог',h:it=>{const c=cls(it);return `<span class="pill ${c==='both'?'ok':'warn'}">${esc(verdict(it))}</span>`},v:it=>cls(it),x:verdict}
+    ],
+    onRow:it=>openRegItem(it),
+    info:all=>`<b>${num(all.length)}</b> ${plural(all.length,'договор','договора','договоров')}`
+  });
 }
 
 /* ===== Менеджеры ===== */
@@ -5614,7 +5654,7 @@ setTimeout(bkTick,25000);setInterval(bkTick,10*60*1000);
 
 
 /* ===== feat3: диагностика ===== */
-const APP_BUILD='2026-10-21b';
+const APP_BUILD='2026-10-22a';
 window.__errs=window.__errs||[];
 window.addEventListener('error',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String(e.message||e).slice(0,300),at:(e.filename||'').split('/').pop()+':'+(e.lineno||'')});window.__errs=window.__errs.slice(-30)}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String((e.reason&&e.reason.message)||e.reason).slice(0,300)});window.__errs=window.__errs.slice(-30)}catch(_){}});
