@@ -358,6 +358,9 @@ main>*:nth-child(2),#view>*:nth-child(2){animation-delay:.04s}main>*:nth-child(3
 .prchips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.prchips .btn.on{background:var(--accent-s);border-color:var(--accent);color:var(--accent2);font-weight:650}
 .prgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:8px 0 12px}.prgrid label{display:flex;flex-direction:column;gap:5px;font-size:13px;color:var(--muted)}
 @media(max-width:900px){.perchip span{display:none}.perchip{padding:0;width:40px;justify-content:center}}
+/* выпадающие фильтры не должны прятаться под следующей карточкой */
+.card:has(.msel.open),.filters:has(.msel.open),.tcard:has(.msel.open){position:relative;z-index:60}
+.msel.open .mp{max-height:min(60vh,420px);overflow:auto}
 </style></head><body><div id="app"></div>
 <script>
 'use strict';
@@ -5693,7 +5696,7 @@ setTimeout(bkTick,25000);setInterval(bkTick,10*60*1000);
 
 
 /* ===== feat3: диагностика ===== */
-const APP_BUILD='2026-10-26a';
+const APP_BUILD='2026-10-26b';
 window.__errs=window.__errs||[];
 window.addEventListener('error',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String(e.message||e).slice(0,300),at:(e.filename||'').split('/').pop()+':'+(e.lineno||'')});window.__errs=window.__errs.slice(-30)}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String((e.reason&&e.reason.message)||e.reason).slice(0,300)});window.__errs=window.__errs.slice(-30)}catch(_){}});
