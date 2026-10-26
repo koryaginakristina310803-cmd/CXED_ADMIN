@@ -4698,19 +4698,25 @@ function addHint(v,sub){
   d.addEventListener('toggle',()=>{if(!d.open)LS.set('sxed_hint_'+key,true)});
   hd.insertAdjacentElement('afterend',d);
 }
-function route(){
+function route(ev){
   if(!VIEWEL)return;
+  const silent=ev===true;                       // тихое обновление (после синхронизации): без прокрутки наверх и без закрытия окон
+  if(silent&&document.querySelector('#modal.open'))return;
+  const y0=window.scrollY;
   const h=(location.hash||'#overview').slice(1);const[name,...rest]=h.split('/');const sub=rest.join('/');
   let v=V[name]?name:'overview';if(VIEW&&!VIEW_NAV[VIEW.kind].includes(v))v='overview';V.cur=v;
   let full=v;if(v==='ctrl')full='ctrl/'+((sub||V.ctrl.tab||'orig').split('/')[0]);if(full==='ctrl/sxd')full='recon';
   const links=$$('.side nav a');let hit=links.find(a=>a.dataset.n===full)||links.find(a=>a.dataset.n===v);
   links.forEach(a=>a.classList.toggle('on',a===hit));
   if(hit){const g=hit.closest('.ng.fold');if(g)g.classList.add('open')}
-  document.body.classList.remove('navopen');closeDrawer();closeModal();
+  document.body.classList.remove('navopen');if(!silent){closeDrawer();closeModal()}
   try{V[v](VIEWEL,sub||undefined)}catch(e){console.error(e);VIEWEL.innerHTML=`<div class="card"><h3>Ошибка отображения</h3><pre class="sm">${esc(e.stack||e)}</pre></div>`}
   try{addHint(v,sub)}catch(e){}
   if(v!=='overview'&&v!=='compare'&&v!=='today'&&!VIEW)remMount(VIEWEL);
-  window.scrollTo(0,0);updBadges();
+  if(silent)window.scrollTo(0,y0);
+  else if(UIMEM.restoreY!=null){const y=UIMEM.restoreY;UIMEM.restoreY=null;window.scrollTo(0,0);[0,120,400,900].forEach(t=>setTimeout(()=>window.scrollTo(0,y),t))}
+  else window.scrollTo(0,0);
+  updBadges();UIMEM.save();
 }
 function updPerChip(){const e=document.getElementById('perchip');if(!e)return;e.innerHTML=ic('calendar',15)+'<span>'+esc(perText())+'</span>';e.onclick=VIEW?null:()=>GOTO('#settings/period');e.style.cursor=VIEW?'default':'pointer'}
 function updBadges(){updPerChip();
@@ -4724,8 +4730,41 @@ function updBadges(){updPerChip();
     }
   }catch(e){}
 }
+
+/* ===== память вкладок: приложение помнит, где вы были (страница, внутренняя вкладка, фильтры, прокрутку) ===== */
+const UIMEM={
+  key:'sxed_ui'+(typeof PKG!=='undefined'&&PKG?'_'+PKG:''),restoreY:null,
+  FK:['contracts','docs','attach','pairs','terms','similar'],
+  get(){return LS.get(this.key,{})},
+  save(){
+    try{
+      if(!VIEWEL)return;const h=location.hash||'#overview';const o=this.get();
+      const sc=o.sc||{};sc[h]=Math.round(window.scrollY);const ks=Object.keys(sc);if(ks.length>40)delete sc[ks[0]];
+      const F={};for(const k of this.FK){if(V[k]&&V[k].F)F[k]=JSON.parse(JSON.stringify(V[k].F,(kk,v)=>v instanceof Set?undefined:v))}
+      LS.set(this.key,{hash:h,sc,F,recon:{tab:V.recon.tab,S:V.recon.S||null,P:V.recon.P||null},ctrl:V.ctrl.tab,settings:V.settings.tab});
+    }catch(e){}
+  },
+  restore(){
+    try{
+      const o=this.get();if(!o||!o.hash)return;
+      const base={contracts:()=>CF0(),docs:()=>DF0(),attach:()=>AF0()};
+      for(const k of this.FK){if(o.F&&o.F[k]){V[k].F=base[k]?Object.assign(base[k](),o.F[k]):o.F[k];if(V[k].F.sel&&!(V[k].F.sel instanceof Set))V[k].F.sel=new Set()}}
+      if(o.recon){if(o.recon.tab)V.recon.tab=o.recon.tab;if(o.recon.S)V.recon.S=o.recon.S;if(o.recon.P)V.recon.P=o.recon.P}
+      if(o.ctrl)V.ctrl.tab=o.ctrl;if(o.settings)V.settings.tab=o.settings;
+      if(!location.hash&&V[o.hash.slice(1).split('/')[0]])history.replaceState(null,'',o.hash);
+      const h=location.hash||'#overview';if(o.sc&&o.sc[h]!=null)this.restoreY=o.sc[h];
+    }catch(e){console.error(e)}
+  }
+};
+{const sv=debounce(()=>UIMEM.save(),500);window.addEventListener('scroll',sv,{passive:true});['click','input','change'].forEach(t=>document.addEventListener(t,sv,true));window.addEventListener('beforeunload',()=>UIMEM.save())}
 window.addEventListener('hashchange',route);
-function onStateMerged(){if(SYNC.dirty){SYNC.dirty=false;try{buildAll()}catch(e){console.error(e)}}computeKpi();if(VIEWEL&&V.cur&&!['tracker'].includes(V.cur)||true){const a=document.activeElement;if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName))route()}}
+function onStateMerged(){   // после синхронизации перерисовываем страницу, только если данные реально изменились; положение на странице сохраняется
+  const changed=SYNC.dirty;
+  if(changed){SYNC.dirty=false;try{buildAll()}catch(e){console.error(e)}}
+  computeKpi();
+  if(changed){const a=document.activeElement;if(!a||!/INPUT|TEXTAREA|SELECT/.test(a.tagName))route(true)}
+  else{try{updBadges()}catch(e){}}
+}
 function globalSearch(){
   openModal(`<div class="gsb">${ic('search',18)}<input id="gq" placeholder="Контрагент, номер договора, ИНН, файл…" autofocus></div><div id="gr" class="gres"><p class="muted sm">Начните вводить — найду договоры, документы и задачи трекера.</p></div>`,m=>{
     const inp=m.querySelector('#gq');const out=m.querySelector('#gr');
@@ -4774,10 +4813,10 @@ async function start(data,key,salt,iter){
   DATA=data;KEY=key;SALT=salt;ITER=iter;
   if(data.view){ // режим просмотра: без сохранения и синхронизации
     VIEW=data.view;ST=blankState();ST.marks=data.marks||{};ST.orig=data.orig||{};ST.seen=data.seen||{};ST.settings={...ST.settings,...(data.settings||{})};
-    buildAll();shell();applyTheme();ARC.init();route();return;
+    buildAll();shell();applyTheme();ARC.init();UIMEM.restore();route();return;
   }
   const saved=await IDB.get('state');ST={...blankState(),...(saved||{})};ST.settings={...blankState().settings,...ST.settings};
-  buildAll();migrateIdeas();shell();applyTheme();ARC.init();route();
+  buildAll();migrateIdeas();shell();applyTheme();ARC.init();UIMEM.restore();route();
   if(SYNC.cfg())SYNC.sync(false).then(()=>{buildAll();onStateMerged()});
   window.addEventListener('focus',()=>{if(SYNC.cfg()&&nowTs()-SYNC.lastOk>60000)SYNC.sync(false)});
 }
@@ -5654,7 +5693,7 @@ setTimeout(bkTick,25000);setInterval(bkTick,10*60*1000);
 
 
 /* ===== feat3: диагностика ===== */
-const APP_BUILD='2026-10-22a';
+const APP_BUILD='2026-10-26a';
 window.__errs=window.__errs||[];
 window.addEventListener('error',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String(e.message||e).slice(0,300),at:(e.filename||'').split('/').pop()+':'+(e.lineno||'')});window.__errs=window.__errs.slice(-30)}catch(_){}});
 window.addEventListener('unhandledrejection',e=>{try{window.__errs.push({t:new Date().toISOString(),m:String((e.reason&&e.reason.message)||e.reason).slice(0,300)});window.__errs=window.__errs.slice(-30)}catch(_){}});
