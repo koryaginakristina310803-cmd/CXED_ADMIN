@@ -460,7 +460,7 @@ const IDB={
 const LS={get(k,d){try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 
 /* ===== состояние пользователя ===== */
-const blankState=()=>({v:1,marks:{},att:{},extraAtt:{},tracker:{cols:null,rows:{},order:[],ts:0},views:{},uploads:{},ideas:{},intake:{},debts:{},orig:{},snaps:{},access:{},dupok:{},seen:{},odiff:{},mgrfix:{},cpalias:{},log:[],settings:{prefix:'',from:2022},updated:0});
+const blankState=()=>({v:1,marks:{},att:{},extraAtt:{},tracker:{cols:null,rows:{},order:[],ts:0},views:{},uploads:{},ideas:{},intake:{},debts:{},orig:{},snaps:{},access:{},dupok:{},seen:{},odiff:{},mgrfix:{},cpalias:{},ar:{cfg:{},ovr:{},ans:{},runs:{},ret:{},ack:{}},log:[],settings:{prefix:'',from:2022},updated:0});
 let ST=blankState();
 function touch(){if(VIEW)return;ST.updated=nowTs();persistSoon();syncSoon()}
 const persistSoon=debounce(()=>{IDB.set('state',ST)},400);
@@ -482,6 +482,7 @@ function mergeState(a,b){ // a — локальное, b — удалённое;
   out.cmpPrev={...(b.cmpPrev||{}),...(a.cmpPrev||{})};for(const k in (b.cmpPrev||{}))if(a.cmpPrev&&a.cmpPrev[k]&&(b.cmpPrev[k].at||0)>(a.cmpPrev[k].at||0))out.cmpPrev[k]=b.cmpPrev[k];
   out.log=[...(a.log||[]),...(b.log||[])].sort((x,y)=>y.t-x.t).filter((e,i,arr)=>!i||e.t!==arr[i-1].t||e.x!==arr[i-1].x).slice(0,200);
   out.settings={...(b.settings||{}),...(a.settings||{})};
+  {const xa=a.ar||{},xb=b.ar||{};out.ar={cfg:((xb.cfg||{}).ts||0)>((xa.cfg||{}).ts||0)?xb.cfg:(xa.cfg||{})};for(const k of ['ovr','ans','runs','ret','ack'])out.ar[k]=mergeMap(xa[k]||{},xb[k]||{})}
   {const pa=a.attPack,pb=b.attPack;const pk=pa&&pb?((pb.ts||0)>(pa.ts||0)?pb:pa):(pa||pb);if(pk)out.attPack=pk}
   out.updated=Math.max(a.updated||0,b.updated||0);
   return out;
@@ -4660,9 +4661,551 @@ function covHTML(c){
   <div class="tscroll"><table class="tbl sm"><thead><tr><th>Архив-источник</th><th class="r">Документов</th><th class="r">Найдено</th><th>Файлы архива</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td><b>${esc(r.src)}</b></td><td class="r">${num(r.total)}</td><td class="r ${r.found===r.total?'ok-t':'bad-t'}"><b>${num(r.found)}</b></td><td class="sm">${r.zips.size?r.zips.size+' '+plural(r.zips.size,'файл','файла','файлов'):'<span class="bad-t">нет архива в папке</span>'}${r.found<r.total?` · не найдено ${num(r.total-r.found)}`:''}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
+
+/* ========== Сверка описи и 1С (2026-11-18) ========== */
+// MOXCEL (.mxl, текстовый формат 1С) → {H, rows}
+function mxlParse(t){
+  t=t.replace(/^[﻿\x00\x01\x08\x0c]+/,'');const st=t.indexOf('{');if(st<0)throw new Error('Это не файл .mxl (табличный документ 1С)');t=t.slice(st);
+  const n=t.length;const stack=[[]];let tok='';
+  for(let i=0;i<n;){
+    const c=t.charCodeAt(i);
+    if(c===123){stack.push([]);i++}                 // {
+    else if(c===125){if(tok.trim())stack[stack.length-1].push(tok.trim());tok='';const x=stack.pop();stack[stack.length-1].push(x);i++}
+    else if(c===44){if(tok.trim())stack[stack.length-1].push(tok.trim());tok='';i++}
+    else if(c===34){let j=i+1,buf='';for(;;){const k=t.indexOf('"',j);if(k<0)throw new Error('Файл .mxl повреждён');buf+=t.slice(j,k);if(t.charCodeAt(k+1)===34){buf+='"';j=k+2}else{j=k+1;break}}stack[stack.length-1].push({s:buf});i=j}
+    else if(c===13||c===10){i++}
+    else{tok+=t[i];i++}
+  }
+  return stack[0];
+}
+function mxlRows(text){
+  const top=mxlParse(text)[0];
+  const txt=c=>{try{const x=c[2];if(x.length>2&&Array.isArray(x[2])&&x[2][1]&&x[2][1].s!=null)return x[2][1].s}catch(e){}return ''};
+  const nrows=+top[15];const rows=new Map();let i=16;
+  while(rows.size<nrows&&i<top.length){const r=+top[i],nc=+top[i+2];i+=3;const cells={};for(let k=0;k<nc;k++){cells[+top[i]]=txt(top[i+1]);i+=2}rows.set(r,cells)}
+  const hdr=rows.get(0)||{};const mx=Math.max(...Object.keys(hdr).map(Number));const H=[];for(let k=0;k<=mx;k++)H.push((hdr[k]||'').trim());
+  const out=[];for(const r of [...rows.keys()].sort((a,b)=>a-b)){if(r===0)continue;const c=rows.get(r);const o={};H.forEach((h,k)=>{if(h)o[h]=(c[k]||'').trim()});out.push(o)}
+  return {H,rows:out};
+}
+/* ===== Сверка описи и 1С: движок (без интерфейса) ===== */
+const AR=(()=>{
+const TRL={A:'А',B:'В',C:'С',E:'Е',H:'Н',K:'К',M:'М',O:'О',P:'Р',T:'Т',X:'Х',Y:'У'};
+const nk=s=>String(s??'').toUpperCase().replace(/Ё/g,'Е').replace(/\.0$/,'').replace(/[^0-9A-ZА-Я]/g,'').replace(/[ABCEHKMOPTXY]/g,c=>TRL[c]).replace(/^0+/,'');
+const cpk=s=>String(s??'').toUpperCase().replace(/Ё/g,'Е').replace(/(^|[^А-ЯA-Z])(ООО|АО|ЗАО|ПАО|ОАО|ИП|СЗ|ПКО|ПКФ|ТОО)(?=[^А-ЯA-Z]|$)/g,'$1 ').replace(/[«»"'().,]/g,' ').replace(/\s+/g,' ').trim();
+const noNum=s=>!nk(s)||/^\s*б\s*\/\s*н\s*$/i.test(String(s??''));
+const dk=s=>s.slice(6)+s.slice(3,5)+s.slice(0,2);            // dd.mm.yyyy → yyyymmdd
+const LD=ds=>ds.length?ds.reduce((a,b)=>dk(b)>dk(a)?b:a):'';
+const FD=ds=>ds.length?ds.reduce((a,b)=>dk(b)<dk(a)?b:a):'';
+const p2=n=>String(n).padStart(2,'0');
+function serialToD(v){const d=new Date(Date.UTC(1899,11,30)+Math.round(v)*864e5);return p2(d.getUTCDate())+'.'+p2(d.getUTCMonth()+1)+'.'+d.getUTCFullYear()}
+function datesOf(v){
+  if(v==null||v==='')return [];
+  if(typeof v==='number')return v>20000&&v<80000?[serialToD(v)]:[];
+  if(v instanceof Date)return [p2(v.getDate())+'.'+p2(v.getMonth()+1)+'.'+v.getFullYear()];
+  const out=[];const re=/(?<!\d)(\d{1,2})\.(\d{1,2})\.(\d{4}|\d{2})(?!\d)/g;let m;
+  while((m=re.exec(String(v)))){const d=+m[1],mo=+m[2];if(d<1||d>31||mo<1||mo>12)continue;out.push(p2(d)+'.'+p2(mo)+'.'+(m[3].length===4?m[3]:'20'+m[3]))}
+  return out;
+}
+const cleanNum=s=>String(s??'').replace(/\s*[-–—]?\s*подписан.*$/i,'').trim();
+const nameDates=c=>{const t=c['Рабочее наименование']||'';const out=datesOf(t);return out};
+const SCH=/сч[её]т[\s-]*договор/i;
+const MULTI=/тр[её]х\s*стор|тр[её]хстрон|четыр[её]х\s*стор|четыр[её]хстрон|многосторон/i;
+const SKIP1C=/неустой|страхов|^\s*тест|можно потом/i;
+
+/* ---- опись: лист → строки ---- */
+function readOpis(XLSX,wb,sheet){
+  const name=sheet&&wb.SheetNames.includes(sheet)?sheet:(wb.SheetNames.find(n=>/техностайл/i.test(n))||wb.SheetNames[0]);
+  const ws=wb.Sheets[name];if(!ws)throw new Error('В описи нет листа «'+sheet+'»');
+  const rg=XLSX.utils.decode_range(ws['!ref']);
+  const cell=(r,c)=>ws[XLSX.utils.encode_cell({r,c})];
+  // строка заголовка: ищем «контрагент» и «договор»
+  let hr=-1,col={};
+  for(let r=rg.s.r;r<=Math.min(rg.e.r,15)&&hr<0;r++){
+    const t={};for(let c=rg.s.c;c<=rg.e.c;c++){const x=cell(r,c);if(x&&x.v!=null)t[c]=String(x.v).toLowerCase().trim()}
+    const f=re=>{for(const c in t)if(re.test(t[c]))return +c;return -1};
+    if(f(/контрагент/)>=0&&f(/№.*договор|номер/)>=0){hr=r;col={cp:f(/контрагент/),inn:f(/^инн/),num:f(/№.*договор|номер/),dt:f(/дата.*договор|^дата/),orig:f(/оригинал/),sign:f(/вид подпис|подпис/),mgr:f(/менеджер/),obj:f(/объект/),spec:f(/специфик/),add:f(/дополнит/)}}
+  }
+  if(hr<0)throw new Error('В описи не найдена строка заголовка (нужны столбцы «Наименование контрагента» и «№ Договора»)');
+  const rows=[];
+  for(let r=hr+1;r<=rg.e.r;r++){
+    const g=k=>{if(col[k]==null||col[k]<0)return null;const x=cell(r,col[k]);return x||null};
+    const v=k=>{const x=g(k);return x?x.v:null};
+    const cp=String(v('cp')??'').trim();const nx=g('num');
+    let num='';if(nx){if(nx.t==='n'){const f=String(nx.z||'');num=/^0+$/.test(f)&&nx.w?nx.w:(Number.isInteger(nx.v)?String(nx.v):String(nx.w||nx.v))}else num=String(nx.v??'').trim()}
+    if(!cp&&!num)continue;
+    const dx=g('dt');const dates=dx?(dx.t==='n'?datesOf(dx.v):dx.v instanceof Date?datesOf(dx.v):datesOf(String(dx.v??''))):[];
+    const dtraw=dx?(dx.t==='n'?dates.join(''):String(dx.v??'').trim()):'';
+    rows.push({xl:r+1,cp,inn:String(v('inn')??'').trim().replace(/\.0$/,''),num,dates,dtraw,orig:String(v('orig')??'').trim(),sign:String(v('sign')??'').trim(),mgr:String(v('mgr')??'').trim(),obj:String(v('obj')??'').trim(),spec:String(v('spec')??'').trim(),add:String(v('add')??'').trim()});
+  }
+  return {sheet:name,rows};
+}
+
+/* ---- менеджеры: «Михайлов В.» / «Комяков» → полное имя из 1С ---- */
+function mgrMapper(c1rows,aliases){
+  const full=[...new Set(c1rows.map(c=>(c['Менеджер']||'').trim()).filter(Boolean))];
+  const bySur=new Map();for(const f of full){const s=f.split(/\s+/)[0].toLowerCase();if(!bySur.has(s))bySur.set(s,[]);bySur.get(s).push(f)}
+  const one=raw=>{
+    raw=String(raw||'').trim().replace(/[()]/g,'');if(!raw)return '';
+    if(aliases&&aliases[raw])return aliases[raw];
+    if(full.includes(raw))return raw;
+    const p=raw.split(/[\s.]+/).filter(Boolean);const s=(p[0]||'').toLowerCase();const ini=(p[1]||'')[0];
+    const c=bySur.get(s)||[];
+    if(c.length===1)return c[0];
+    if(c.length>1&&ini){const m=c.filter(f=>(f.split(/\s+/)[1]||'')[0]===ini);if(m.length===1)return m[0]}
+    return isPersonName(raw)?raw:'';
+  };
+  return raw=>String(raw||'').split(/\s*[\/,;]\s*/).map(one).filter(Boolean).filter((x,i,a)=>a.indexOf(x)===i).join(' / ');
+}
+const isPersonName=s=>/^[А-ЯЁ][а-яё]+(-[А-ЯЁ][а-яё]+)?(\s+[А-ЯЁ][а-яё.]*){0,2}\.?$/.test(String(s||'').trim())&&!/^(ЭЦП|Бумага|Скан|Да|Нет|Собственноручн)/i.test(s);
+
+/* ---- основной расчёт ---- */
+function run(opisRows,c1All,cfg,mem){
+  cfg=Object.assign({org:'ТЕХНОСТАЙЛ АО',from:'27.11.2024',excl:[],dismissed:{},aliases:{}},cfg||{});mem=mem||{};
+  const from=cfg.from;const ovr=mem.ovr||{},ans=mem.ans||{};
+  const inOrg=c=>!cfg.org||(c['Организация']||'').trim()===cfg.org;
+  const C1=c1All.filter(inOrg),OTH=c1All.filter(c=>!inOrg(c));
+  const GEN=c=>noNum(c['Номер'])&&/^\s*Основ/i.test(c['Рабочее наименование']||'');
+  const mkIdx=L=>{const byinn=new Map(),bynum=new Map();for(const c of L){for(const i of String(c['ИНН']||'').match(/\d{10,12}/g)||[]){if(!byinn.has(i))byinn.set(i,[]);byinn.get(i).push(c)}if(!noNum(c['Номер'])){const k=nk(c['Номер']);if(!bynum.has(k))bynum.set(k,[]);bynum.get(k).push(c)}}return{byinn,bynum,L}};
+  const IX=mkIdx(C1),IXO=mkIdx(OTH);
+  const MG=mgrMapper(c1All,cfg.aliases);
+  const firstWord=cp=>{const w=cpk(String(cp).split(/ \/ | - |\(/)[0]).split(' ');return w[0]||''};
+  function check(r,ix){
+    const want=nk(cleanNum(r.num)),dates=r.dates,nonum=noNum(r.num);let cands=[];const isAgr=/соглашени/i.test(r.num+' '+r.cp);
+    for(const x of (r.inn.match(/\d{10,12}/g)||[]))cands=cands.concat(ix.byinn.get(x)||[]);
+    if(!cands.length){const f=firstWord(r.cp);if(f.length>=4)cands=ix.L.filter(c=>cpk(c['Контрагент']).split(' ').includes(f))}
+    if(!cands.length&&!nonum&&ix.bynum.has(want))cands=ix.bynum.get(want);
+    let exact=nonum?[]:cands.filter(c=>!noNum(c['Номер'])&&nk(c['Номер'])===want),byName=false;
+    if(!nonum&&!exact.length){
+      exact=cands.filter(c=>(!noNum(c['Номер'])&&nk(c['Номер']).length>=6&&want.length-nk(c['Номер']).length>=8&&want.includes(nk(c['Номер'])))||(want.length>=6&&nk(c['Рабочее наименование']).includes(want)));
+      const e2=exact.filter(c=>dates.includes(c['Дата']));if(e2.length)exact=e2;byName=exact.length>0;
+    }
+    if(isAgr){
+      if(/соглашени/i.test(r.num))exact=exact.filter(c=>/соглашени/i.test(c['Рабочее наименование']||''));
+      const bm=String(r.num).match(/№\s*(\S+)/);const base=bm?nk(bm[1]):(/соглашени/i.test(r.num)?'':want);
+      if(base.length>=4){
+        let pool=cands.slice();for(const part of r.cp.split(/\s*\/\s*|\s+-\s+|\(/)){const w=cpk(part).split(' ')[0];if(w&&w.length>=4)pool=pool.concat(ix.L.filter(c=>cpk(c['Контрагент']).replace(/ /g,'').includes(w)||cpk(c['Контрагент']).split(' ').includes(w)))}
+        const ag2=pool.filter(c=>/соглашени/i.test(c['Рабочее наименование']||'')&&nk(c['Рабочее наименование']).includes(base));
+        if(ag2.length&&!exact.length&&!ag2.some(c=>dates.includes(c['Дата'])))return{st:'agr',c:ag2[0],cands};
+        const ag=pool.filter(c=>/соглашени/i.test(c['Рабочее наименование']||'')&&dates.includes(c['Дата'])&&nk(c['Рабочее наименование']).includes(base));
+        if(ag.length&&!exact.some(c=>dates.includes(c['Дата']))){exact=ag;byName=false}
+      }
+    }
+    if(exact.length){
+      const ok=exact.filter(c=>dates.includes(c['Дата']));
+      if(ok.length)return{st:byName&&!isAgr&&!/соглашени|уступк|переуступ|дополнит/i.test(ok[0]['Рабочее наименование']||'')&&nk(ok[0]['Номер'])!==want&&!noNum(ok[0]['Номер'])?'numfield':'ok',c:ok[0],cands};
+      const nd=exact.filter(c=>nameDates(c).some(d=>dates.includes(d)));
+      if(nd.length)return{st:'datetypo',c:nd[0],cands};
+      return{st:'date',c:exact[0],cands};
+    }
+    if(!nonum){
+      const sim=cands.filter(c=>!noNum(c['Номер'])).map(c=>[ratio(want,nk(c['Номер'])),c]).sort((a,b)=>b[0]-a[0]);
+      if(sim.length&&(sim[0][0]>=.85||(sim[0][0]>=.7&&dates.includes(sim[0][1]['Дата']))))return{st:'num',c:sim[0][1],cands};
+      const sd=cands.filter(c=>!noNum(c['Номер'])&&dates.includes(c['Дата']));if(sd.length)return{st:'num',c:sd[0],cands};
+    }
+    if(!cands.length)return{st:'nocp',c:null,cands};
+    if(cands.every(c=>GEN(c)||noNum(c['Номер']))){const g=(cands.filter(GEN).length?cands.filter(GEN):cands).sort((a,b)=>dk(a['Дата']).localeCompare(dk(b['Дата'])));return{st:'gen',c:g[g.length-1],cands}}
+    return{st:'none',c:null,cands};
+  }
+  // ---- проход по описи ----
+  const items=[],skipped={closed:[],sch:[],annul:[],nodate:0,old:0};const used=new Set();const keys=new Map();
+  for(const r of opisRows){
+    if(!r.dates.length){skipped.nodate++;continue}
+    if(dk(LD(r.dates))<dk(from)){skipped.old++;continue}
+    if(SCH.test(r.num+' '+r.cp)){skipped.sch.push(r);continue}
+    if(/аннулир/i.test([r.mgr,r.sign,r.orig,r.obj].join(' '))||/не действ/i.test(r.orig)){skipped.annul.push(r);continue}
+    let k='O:'+((r.inn.match(/\d{10,12}/)||[])[0]||cpk(r.cp).slice(0,40))+'|'+(nk(r.num)||'Д'+FD(r.dates));
+    const n=(keys.get(k)||0)+1;keys.set(k,n);if(n>1)k+='#'+n;
+    let res=check(r,IX);let other=null;
+    if(['none','nocp','gen'].includes(res.st)){const o=check(r,IXO);if(['ok','date','datetypo','numfield'].includes(o.st))other=o}
+    const c=res.c;if(c)used.add(c);if(other&&other.c)used.add(other.c);
+    if(c&&(c['Состояние']||'')==='Закрыт'&&!['gen','none','nocp'].includes(res.st)){skipped.closed.push({r,c});continue}
+    const mgr=MG(r.mgr)||(isPersonName(r.sign)?MG(r.sign):'')||(c?MG(c['Менеджер']):'')||'Не указан';
+    const it={mgrs:mgr.split(' / '),key:k,xl:r.xl,cp:r.cp,inn:r.inn,num:r.num,dates:r.dates,dtraw:r.dtraw,orig:r.orig,sign:r.sign,mgr,mgrSrc:r.mgr?'опись':(c?'1С':''),multi:MULTI.test(r.cp)||(r.cp.split(' / ').length>2),st:res.st,c:c?pick(c):null,other:other?pick(other.c):null};
+    classify(it,res);
+    const nda=/конфиденц|неразглаш|NDA/i.test([r.num,r.spec,r.add,r.obj].join(' '));
+    if(nda&&it.sec!=='OK'){it.sec='ASK';it.todo=`Похоже на соглашение о конфиденциальности (в описи: «${[r.spec,r.add].filter(x=>/конфиденц|неразглаш|NDA/i.test(x)).join(' ')||r.num}»), а не на договор поставки. Проверьте вручную, нужно ли заводить его в 1С`;it.who='Менеджер';it.nda=true}
+    else if(noNum(r.num)&&['ZAV'].includes(it.sec)){it.sec='ASK';it.todo=`Договор без номера (б/н) от ${FD(r.dates)}${r.spec?' · '+r.spec:''}. Проверьте вручную, что это за документ и нужно ли заводить его в 1С`;it.who='Менеджер'}
+    // ручное решение и ответы
+    const o=ovr[k];if(o&&o.sec){it.auto={sec:it.sec,todo:it.todo};it.sec=o.sec;if(o.todo)it.todo=o.todo;it.manual=true}
+    const a=ans[k];if(a&&!a.del){it.ans=a}
+    items.push(it);
+  }
+  // ---- нет в описи ----
+  const opisByInn=new Map();for(const r of opisRows)for(const x of r.inn.match(/\d{10,12}/g)||[]){if(!opisByInn.has(x))opisByInn.set(x,[]);opisByInn.get(x).push(r)}
+  const opisNk=new Set(opisRows.map(r=>nk(cleanNum(r.num))).filter(x=>x.length>=8));
+  const c1ByInnNum=new Set(C1.filter(c=>!noNum(c['Номер'])).map(c=>(c['ИНН']||'')+'|'+nk(c['Номер'])));
+  const ni=[],niSkip={closed:[],sch:0,other:0};
+  for(const c of C1){
+    if(used.has(c)||GEN(c)||!/\d\d\.\d\d\.\d{4}/.test(c['Дата']||'')||dk(c['Дата'])<dk(from))continue;
+    const nm=(c['Рабочее наименование']||'')+' '+c['Номер'];
+    if(SCH.test(nm)){niSkip.sch++;continue}
+    if(SKIP1C.test(nm)||/аннулир/i.test(c['Статус договора']||'')){niSkip.other++;continue}
+    const ors=opisByInn.get((c['ИНН']||'').trim())||[];const n=nk(c['Номер']);
+    if(n.length>=8&&opisNk.has(n))continue;   // многосторонний: в описи записан на другую сторону
+    if(n&&ors.some(o=>nk(o.num)===n||(n.length>=5&&nk(o.num).includes(n)&&/соглашени|д\/с|доп/i.test(o.num))))continue;
+    if(n&&ors.some(o=>o.dates.includes(c['Дата'])&&!c1ByInnNum.has((c['ИНН']||'')+'|'+nk(o.num))&&ratio(nk(o.num),n)>=.5))continue;
+    if((c['Состояние']||'')==='Закрыт'){niSkip.closed.push(c);continue}
+    ni.push(niHint(pick(c),ors,n));
+  }
+  return{items,ni,skipped,niSkip,stats:stats(items,ni),mgrs:[...new Set(items.map(i=>i.mgr).concat(ni.map(x=>x.mgr)))].sort()};
+}
+function pick(c){return{num:(c['Номер']||'').trim(),date:c['Дата'],cp:(c['Контрагент']||'').trim(),inn:(c['ИНН']||'').trim(),mgr:(c['Менеджер']||'').trim(),edo:(c['Статус договора']||'').trim(),state:(c['Состояние']||'').trim(),name:(c['Рабочее наименование']||'').trim(),org:(c['Организация']||'').trim(),gen:noNum(c['Номер'])&&/^\s*Основ/i.test(c['Рабочее наименование']||'')}}
+const DS=ds=>ds.length?ds.join(' / '):'—';
+function classify(it,res){
+  const c=it.c,ds=it.dates,d1=FD(ds),d2=LD(ds),two=d1!==d2,num=it.num||'б/н';
+  const S=(sec,todo,who)=>{it.sec=sec;it.todo=todo;it.who=who};
+  switch(res.st){
+    case 'ok':S('OK','Ничего делать не нужно','—');break;
+    case 'numfield':S('FIX',`В 1С в поле «Номер» стоит «${c.num}», а в названии договора и в описи — «${it.num}». Исправить поле «Номер» в 1С`,'Бухгалтерия');break;
+    case 'datetypo':{const nd=datesOf(c.name).find(d=>ds.includes(d));S('FIX',`Проверьте дату по договору: в 1С в поле «Дата» ${c.date}, а в названии договора в 1С и в описи — ${nd}. Похоже на опечатку в 1С — если верна ${nd}, исправьте поле «Дата»`,'Бухгалтерия');break}
+    case 'date':S('ASK',`Проверьте дату по договору (оригинал или ЭДО): в 1С ${c.date}, в описи ${DS(ds)}${two?' (дата договора / дата подписания в ЭДО)':''}. Исправьте там, где ошибка`,'Менеджер');break;
+    case 'num':S('ASK',`Проверьте номер по договору: в 1С № ${c.num} от ${c.date}, в описи № ${num} от ${DS(ds)}. Исправьте там, где ошибка`,'Менеджер');break;
+    case 'agr':S('ASK',`Соглашение в 1С есть: ${c.cp}, № ${c.num||'б/н'} от ${c.date}. В описи ${DS(ds)}. Проверьте дату соглашения и исправьте в 1С или в описи`,'Менеджер');break;
+    case 'gen':S('ZAV',`Завести договор № ${num} от ${d1}${two?` (подписан в ЭДО ${d2})`:''}. «Основной договор» не менять`,'Бухгалтерия');break;
+    case 'nocp':S('ZAV',`Контрагента в 1С не нашлось. Найти или завести контрагента, затем договор № ${num} от ${d1}${two?` (подписан в ЭДО ${d2})`:''}`,'Бухгалтерия');break;
+    default:S('ZAV',`Завести договор № ${num} от ${d1}${two?` (подписан в ЭДО ${d2})`:''}`,'Бухгалтерия');
+  }
+  if(it.other&&it.sec==='ZAV')S('FIX',`Договор заведён в 1С на другую организацию (${it.other.org}): № ${it.other.num} от ${it.other.date}. Перенести на нужную организацию`,'Бухгалтерия');
+}
+function niHint(c,ors,n){
+  const x=Object.assign({},c);
+  if(!c.inn){x.g='Иностранный';x.t='ИНН в 1С пустой — похоже на иностранную компанию. Иностранных договоров в описи обычно нет: решите, вносить ли';return x}
+  if(/утвержд/i.test(c.edo)){x.g='Подписан в ЭДО';x.t='В 1С отмечен как подписанный в ЭДО — договор точно должен быть в описи'}
+  const sim=ors.map(o=>[ratio(n,nk(o.num)),o]).sort((a,b)=>b[0]-a[0]);
+  let t;
+  if(sim.length&&sim[0][0]>=.75){const o=sim[0][1];t=`В описи есть похожий: № ${o.num} от ${DS(o.dates)} (строка ${o.xl}). Проверьте — это другой договор или черновик в 1С`;x.g=x.g||'Похожий номер в описи'}
+  else if(ors.length){const l=ors.reduce((a,b)=>dk(LD(b.dates)||'00.00.0000')>dk(LD(a.dates)||'00.00.0000')?b:a);t=`Контрагент в описи есть (${ors.length} дог.), последний: № ${l.num} от ${DS(l.dates)}`;x.g=x.g||'Контрагент в описи есть'}
+  else{t='С этим контрагентом в описи нет ни одного договора';x.g=x.g||'Контрагента нет в описи'}
+  x.t=(x.t?x.t+'. ':'')+t;return x;
+}
+function stats(items,ni){const s={ZAV:0,FIX:0,OPIS:0,DEC:0,ASK:0,KEEP:0,OK:0};for(const i of items)s[i.sec]=(s[i.sec]||0)+1;s.total=items.length;s.open=items.filter(i=>!['OK','KEEP'].includes(i.sec)).length;s.ni=ni.length;return s}
+/* похожесть строк (как difflib.SequenceMatcher.ratio — через общие подпоследовательности) */
+function ratio(a,b){if(!a.length&&!b.length)return 1;const M=matches(a,b);return 2*M/(a.length+b.length)}
+function matches(a,b){ // рекурсивно: самый длинный общий кусок + слева + справа
+  if(!a.length||!b.length)return 0;let best=0,ai=0,bi=0;const prev=new Array(b.length+1).fill(0);
+  for(let i=1;i<=a.length;i++){let diag=0;for(let j=1;j<=b.length;j++){const tmp=prev[j];prev[j]=a[i-1]===b[j-1]?diag+1:0;if(prev[j]>best){best=prev[j];ai=i-best;bi=j-best}diag=tmp}}
+  if(!best)return 0;return best+matches(a.slice(0,ai),b.slice(0,bi))+matches(a.slice(ai+best),b.slice(bi+best));
+}
+const SEC={ZAV:{t:'Завести в 1С',who:'Бухгалтерия',fill:'F8CBAD'},FIX:{t:'Исправить в 1С',who:'Бухгалтерия',fill:'F8CBAD'},OPIS:{t:'Исправить в описи',who:'Опись',fill:'DDEBF7'},DEC:{t:'Решить бухгалтерии',who:'Бухгалтерия',fill:'FFE699'},ASK:{t:'Уточнить у менеджера',who:'Менеджер',fill:'FFE699'},KEEP:{t:'Не трогаем',who:'—',fill:'D9D9D9'},OK:{t:'Всё в порядке',who:'—',fill:'C6E0B4'}};
+const ORDER=['ZAV','FIX','OPIS','DEC','ASK','KEEP','OK'];
+return{nk,cpk,noNum,datesOf,LD,FD,dk,DS,readOpis,run,ratio,SEC,ORDER,MULTI};
+})();
+/* ===== Раздел «Сверка описи и 1С» (автоматическая сверка, файлы менеджерам, ответы) ===== */
+const AR_ANS=['Сделано','В работе','Не согласен — см. комментарий','Не мой договор','Договор не нужен'];
+const AR_NIDEC=['Внести в опись','Запросить договор у менеджера','Договор не нужен / ошибка в 1С','Уже есть в описи (другой номер/дата)'];
+const ARX={src:null,res:null,loaded:false,F:{sec:'open',mgr:'',q:'',multi:false,lim:200},N:{g:'',q:'',lim:200}};
+function ARS(){if(!ST.ar)ST.ar={};const a=ST.ar;for(const k of ['ovr','ans','runs','ret','ack'])if(!a[k]||typeof a[k]!=='object')a[k]={};if(!a.cfg)a.cfg={};return a}
+function ARCFG(){const c=ARS().cfg;return{org:c.org??'ТЕХНОСТАЙЛ АО',from:c.from||'27.11.2024',sheet:c.sheet||'ТЕХНОСТАЙЛ',excl:c.excl||['Чернышев Евгений'],dismissed:c.dismissed||{},aliases:c.aliases||{}}}
+const arSecName=s=>(AR.SEC[s]||{}).t||s;
+const arPill=s=>`<span class="pill ${s==='OK'?'ok':s==='KEEP'?'mute':['ZAV','FIX'].includes(s)?'bad':s==='OPIS'?'info':'warn'}">${esc(arSecName(s))}</span>`;
+const arDS=ds=>ds&&ds.length?ds.join(' / '):'—';
+async function arLoad(){if(ARX.loaded)return;ARX.loaded=true;try{const s=await IDB.get('ar_src');if(s&&s.opis&&s.c1){ARX.src=s;arRun(false)}}catch(e){noteErr('Сверка описи и 1С: загрузка',e)}}
+function arRun(save){
+  const S=ARX.src;if(!S)return;const A=ARS();
+  ARX.res=AR.run(S.opis,S.c1,ARCFG(),{ovr:A.ovr,ans:A.ans});ARX.res.at=S.at;
+  if(save){
+    const id='r'+Date.now();const st={};for(const i of ARX.res.items)if(!['OK','KEEP'].includes(i.sec))st[i.key]=i.sec;
+    A.runs[id]={id,at:Date.now(),opis:S.opisName,c1:S.c1Name,from:ARCFG().from,stats:ARX.res.stats,st,ni:ARX.res.ni.length,ts:Date.now()};
+    const ids=Object.keys(A.runs).sort();while(ids.length>12)delete A.runs[ids.shift()];
+    logAct('Сверка описи и 1С: '+ARX.res.stats.open+' задач, нет в описи '+ARX.res.ni.length);touch();
+  }
+}
+function arPrevRun(){const r=Object.values(ARS().runs).sort((a,b)=>b.at-a.at);return r[1]||null}
+function arDiff(){
+  const R=ARX.res,p=arPrevRun();if(!R||!p)return null;
+  const open=s=>s&&!['OK','KEEP'].includes(s);const now={};R.items.forEach(i=>now[i.key]=i);
+  const nw=[],fixed=[],still=[];
+  for(const i of R.items){if(open(i.sec)){(open(p.st[i.key])?still:nw).push(i)}}
+  for(const k in p.st){if(open(p.st[k])&&!(now[k]&&open(now[k].sec)))fixed.push({key:k,was:p.st[k],now:now[k]})}
+  return{p,nw,fixed,still};
+}
+function arMgrFiles(){ // менеджер → задачи
+  const R=ARX.res,cfg=ARCFG(),M=new Map();if(!R)return M;
+  for(const i of R.items){if(['OK','KEEP'].includes(i.sec))continue;for(const m of i.mgrs){if(cfg.excl.includes(m)||m==='Не указан')continue;if(!M.has(m))M.set(m,[]);M.get(m).push(i)}}
+  return new Map([...M.entries()].sort((a,b)=>a[0].localeCompare(b[0],'ru')));
+}
+
+V.arec=function(el,sub){
+  if(!ARX.loaded){el.innerHTML='<div class="card">Загружаю…</div>';arLoad().then(()=>{if(V.cur==='arec')route(true)});return}
+  const tab=(sub||'').split('/')[0]||(ARX.res?'res':'load');const R=ARX.res;
+  const T=[['load','Проверка'],['res','Результат'],['mgr','Менеджеры'],['ni','Нет в описи'],['ans','Ответы менеджеров'],['hist','История'],['cfg','Настройки']];
+  el.innerHTML=`<div class="pghead"><div><h1>Сверка описи и 1С</h1><p class="muted">Загрузите опись и выгрузку 1С — приложение само найдёт расхождения, разложит их по менеджерам и сделает файлы.${R?` Последняя сверка: ${esc(ARX.src.opisName)} и ${esc(ARX.src.c1Name)}.`:''}</p></div>
+  <div class="row nopr" style="gap:8px;flex-wrap:wrap">${R?`<button class="btn pri" id="ar-xmain">${ic('dl',16)} Общий файл</button><button class="btn" id="ar-xmgr">${ic('users',16)} Файлы менеджерам</button><button class="btn" id="ar-xgb">${ic('dl',16)} Файл главбуха</button>`:''}</div></div>
+  <div class="tabs">${T.map(([k,t])=>`<a href="#arec/${k}" class="${k===tab?'on':''}">${t}</a>`).join('')}</div><div id="ar-body"></div>`;
+  const b=$('#ar-body',el);
+  if(R){$('#ar-xmain',el).onclick=()=>arXl('main');$('#ar-xmgr',el).onclick=()=>arXl('mgr');$('#ar-xgb',el).onclick=()=>arXl('gb')}
+  if(tab!=='load'&&tab!=='cfg'&&tab!=='hist'&&!R){b.innerHTML=`<div class="card empty-state">${ic('scale',40)}<h3>Сверки ещё нет</h3><p>Загрузите опись и выгрузку 1С на вкладке «Проверка».</p><a class="btn pri" href="#arec/load">Перейти к загрузке</a></div>`;return}
+  ({load:arTabLoad,res:arTabRes,mgr:arTabMgr,ni:arTabNi,ans:arTabAns,hist:arTabHist,cfg:arTabCfg}[tab]||arTabRes)(b);
+};
+
+/* ---- Проверка: загрузка файлов ---- */
+function arTabLoad(b){
+  const S=ARX.src||{},P=ARX.pend||(ARX.pend={});const cfg=ARCFG();
+  b.innerHTML=`<section class="card"><h3>1. Файлы для сверки</h3><p class="muted sm">Файлы читаются только на этом устройстве и никуда не отправляются. В синхронизацию попадают лишь итоги, решения и ответы менеджеров.</p>
+    <div class="cols2"><div><b>Опись договоров (.xlsx)</b><div id="ar-dz1"></div><div class="sm" id="ar-f1">${P.opis?'✔ '+esc(P.opisName)+' — '+num(P.opis.length)+' строк (лист «'+esc(P.sheet)+'»)':S.opisName?'Сейчас: '+esc(S.opisName):''}</div></div>
+    <div><b>Выгрузка договоров из 1С (.mxl или .xlsx)</b><div id="ar-dz2"></div><div class="sm" id="ar-f2">${P.c1?'✔ '+esc(P.c1Name)+' — '+num(P.c1.length)+' договоров':S.c1Name?'Сейчас: '+esc(S.c1Name):''}</div></div></div>
+    <div class="row" style="margin-top:14px;gap:10px;align-items:center;flex-wrap:wrap"><label class="sm">Договоры с <input class="inp" type="text" id="ar-from" value="${esc(cfg.from)}" style="width:110px" placeholder="дд.мм.гггг"></label>
+    <button class="btn pri" id="ar-go" ${(P.opis||S.opis)&&(P.c1||S.c1)?'':'disabled'}>${ic('scale',16)} Сверить</button><span class="muted sm">Можно заменить только один файл — второй возьмётся из прошлой загрузки.</span></div></section>
+    <section class="card"><h3>2. Перенести решения из прошлого отчёта <small class="muted">необязательно, один раз</small></h3><p class="muted sm">Если у вас есть общий файл сверки, сделанный раньше («Сверка описи и 1С — …xlsx», лист «Все договоры»), загрузите его: приложение возьмёт оттуда комментарии менеджеров и ручные решения («Исправить в описи», «Решить бухгалтерии», «Не трогаем»).</p><div id="ar-dz3"></div></section>
+    <section class="card"><h3>Правила сверки</h3><ul class="sm" style="margin:0;padding-left:18px;line-height:1.7">
+    <li>Сверяются договоры с датой от <b>${esc(cfg.from)}</b> (по последней дате в описи), лист описи «${esc(cfg.sheet)}», организация в 1С «${esc(cfg.org)}».</li>
+    <li>Дата в 1С верна, если совпадает с любой датой в описи (дата договора или дата подписания в ЭДО). Если не совпадает — менеджеру: «проверьте дату по договору».</li>
+    <li>Номера сравниваются без пробелов и знаков, латиница = кириллица, ведущие нули не важны. Если номер совпал только в названии договора в 1С — показывается опечатка в поле «Номер».</li>
+    <li>Не сверяются: счёт-договоры, договоры в состоянии «Закрыт» в 1С, аннулированные и «не действует» в описи, неустойки и страховые акты.</li>
+    <li>Многосторонние договоры ищутся по всем сторонам; соглашения — по номеру основного договора.</li>
+    <li>«Нет в описи» — договоры 1С за тот же период, которых нет в описи; иностранные (без ИНН) — отдельно. Менеджерам этот список не попадает.</li></ul></section>`;
+  const dz1=dropzone('Опись .xlsx','.xlsx,.xls',async f=>{try{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});const o=AR.readOpis(XLSX,wb,cfg.sheet);P.opis=o.rows;P.opisName=f.name;P.sheet=o.sheet;arTabLoad(b)}catch(e){toast(e.message||'Не удалось прочитать опись','bad',6000)}});
+  const dz2=dropzone('1С .mxl / .xlsx','.mxl,.xlsx,.xls',async f=>{try{let rows;if(/\.mxl$/i.test(f.name))rows=mxlRows(await f.text()).rows;else{const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});const a=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:'',raw:false});rows=a.map(o=>{const x={};for(const k in o)x[k.trim()]=String(o[k]).trim();return x})}
+    if(!rows.length||!('Номер' in rows[0])||!('Контрагент' in rows[0]))throw new Error('В выгрузке 1С нет столбцов «Номер» и «Контрагент»');P.c1=rows;P.c1Name=f.name;arTabLoad(b)}catch(e){toast(e.message||'Не удалось прочитать выгрузку 1С','bad',6000)}});
+  $('#ar-dz1',b).appendChild(dz1);$('#ar-dz2',b).appendChild(dz2);
+  $('#ar-dz3',b).appendChild(dropzone('Прошлый общий файл .xlsx','.xlsx',f=>arImportPrev(f).catch(e=>toast(e.message||'Ошибка','bad',6000))));
+  $('#ar-go',b).onclick=async()=>{
+    const from=$('#ar-from',b).value.trim();if(!/^\d\d\.\d\d\.\d{4}$/.test(from))return toast('Дата периода — в формате дд.мм.гггг','bad');
+    if(from!==cfg.from){ARS().cfg={...ARS().cfg,from,ts:Date.now()}}
+    const S0=ARX.src||{};ARX.src={opis:P.opis||S0.opis,opisName:P.opisName||S0.opisName,c1:P.c1||S0.c1,c1Name:P.c1Name||S0.c1Name,at:Date.now()};ARX.pend={};
+    await IDB.set('ar_src',ARX.src);arRun(true);toast('Сверка готова: '+ARX.res.stats.open+' задач','ok');GOTO('#arec/res');
+  };
+}
+async function arImportPrev(f){
+  if(!ARX.res)throw new Error('Сначала сделайте сверку — решения переносятся на её строки');
+  const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});const ws=wb.Sheets['Все договоры'];if(!ws)throw new Error('В файле нет листа «Все договоры»');
+  const a=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});const hr=a.findIndex(r=>r&&r.includes('Вкладка')&&r.includes('ИНН'));if(hr<0)throw new Error('Не найден заголовок таблицы на листе «Все договоры»');
+  const H=a[hr];const ix=n=>H.indexOf(n);const A=ARS();let nd=0,nc=0,miss=0;
+  const byKey=new Map();for(const i of ARX.res.items){byKey.set((i.inn||'')+'|'+AR.nk(i.num),i);byKey.set('x'+i.xl,i)}
+  const SM={'Исправить в описи':'OPIS','Решить бухгалтерии':'DEC','Не трогаем':'KEEP'};
+  for(const r of a.slice(hr+1)){if(!r||!r[ix('Вкладка')])continue;
+    const it=byKey.get((r[ix('ИНН')]||'')+'|'+AR.nk(r[ix('№ договора (опись)')]))||byKey.get('x'+r[ix('Строка в описи')]);if(!it){miss++;continue}
+    const tabn=String(r[ix('Вкладка')]).replace(/^\d+\s*/,'');const sec=SM[tabn];
+    if(sec&&!(A.ovr[it.key]&&A.ovr[it.key].ts)){A.ovr[it.key]={sec,todo:r[ix('Что сделать')]||'',note:'перенесено из прошлого отчёта',ts:Date.now()};nd++}
+    const cm=[r[ix('Комментарий менеджера')],r[ix('Комментарий к ответу')]].filter(Boolean).join(' · '),an=r[ix('Ответ менеджера')]||'';
+    if((cm||an)&&!(A.ans[it.key]&&!A.ans[it.key].del)){A.ans[it.key]={a:an,c:cm,mgr:it.mgr,src:f.name,at:Date.now(),ts:Date.now()};nc++}
+  }
+  touch();arRun(false);toast(`Перенесено: решений ${nd}, комментариев ${nc}${miss?`, не найдено строк ${miss}`:''}`,'ok',6000);route(true);
+}
+
+/* ---- Результат ---- */
+function arFilter(){const F=ARX.F,q=F.q.trim().toLowerCase();return ARX.res.items.filter(i=>(F.sec==='all'||(F.sec==='open'?!['OK','KEEP'].includes(i.sec):i.sec===F.sec))&&(!F.mgr||i.mgrs.includes(F.mgr))&&(!F.multi||i.multi)&&(!q||(i.cp+' '+i.num+' '+i.inn+' '+i.mgr+' '+(i.c?i.c.num+' '+i.c.cp:'')).toLowerCase().includes(q)))}
+function arTabRes(b){
+  const R=ARX.res,S=R.stats,F=ARX.F,D=arDiff();
+  const card=(k,v,s,tone)=>`<button class="kpi ${tone}" data-sec="${k}"><span class="kl">${esc(s)}</span><span class="kv">${num(v)}</span></button>`;
+  const rows=arFilter();const pg=rows.slice(0,F.lim);
+  b.innerHTML=`<div class="kpis tiles" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">${card('open',S.open,'Открытых задач','bad')}${AR.ORDER.map(k=>card(k,S[k]||0,arSecName(k),k==='OK'?'ok':k==='KEEP'?'':['ZAV','FIX'].includes(k)?'bad':'warn')).join('')}<button class="kpi info" data-go="#arec/ni"><span class="kl">Нет в описи</span><span class="kv">${num(R.ni.length)}</span><span class="ks">только для главбуха</span></button></div>
+  ${D?`<div class="callout ${D.nw.length?'warn':'ok'}"><b>По сравнению с прошлой сверкой (${new Date(D.p.at).toLocaleDateString('ru-RU')}):</b> закрыто ${num(D.fixed.length)}, новых ${num(D.nw.length)}, осталось ${num(D.still.length)}. <a href="#arec/hist">Подробнее</a></div>`:''}
+  <div class="callout sm">Не сверялись: закрытые в 1С — ${R.skipped.closed.length}, счёт-договоры — ${R.skipped.sch.length}, аннулированные — ${R.skipped.annul.length}, без даты — ${R.skipped.nodate}. ${R.skipped.closed.length?`<a href="#" id="ar-sk">Показать</a>`:''}</div>
+  <section class="card"><div class="row" style="gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+    <input class="inp" type="search" id="ar-q" placeholder="Контрагент, номер, ИНН, менеджер" value="${esc(F.q)}" style="flex:1;min-width:220px">
+    <select class="inp" id="ar-m" style="width:auto"><option value="">Все менеджеры</option>${R.mgrs.flatMap(m=>m.split(' / ')).filter((x,i,a)=>a.indexOf(x)===i).sort((a,b)=>a.localeCompare(b,'ru')).map(m=>`<option ${F.mgr===m?'selected':''}>${esc(m)}</option>`).join('')}</select>
+    <select class="inp" id="ar-s" style="width:auto"><option value="open" ${F.sec==='open'?'selected':''}>Все открытые</option><option value="all" ${F.sec==='all'?'selected':''}>Все договоры</option>${AR.ORDER.map(k=>`<option value="${k}" ${F.sec===k?'selected':''}>${esc(arSecName(k))}</option>`).join('')}</select>
+    <label class="sm"><input type="checkbox" id="ar-mu" ${F.multi?'checked':''}> только многосторонние</label><span class="muted sm">${num(rows.length)}</span></div>
+  <div class="tscroll"><table class="tbl sm"><thead><tr><th>Раздел</th><th>Менеджер</th><th>Контрагент (опись)</th><th>№ и дата (опись)</th><th>1С</th><th>Что сделать</th><th>Ответ менеджера</th></tr></thead><tbody>
+  ${pg.map(i=>`<tr data-ar="${esc(i.key)}" style="cursor:pointer"><td>${arPill(i.sec)}${i.manual?'<div class="muted sm">вручную</div>':''}</td><td>${esc(i.mgr)}</td><td><b>${esc(i.cp)}</b>${i.multi?' <span class="pill info">многосторонний</span>':''}<div class="muted sm">ИНН ${esc(i.inn||'—')} · стр. ${i.xl}</div></td><td class="mono">${esc(i.num||'б/н')}<div class="muted">${esc(arDS(i.dates))}</div></td><td>${i.c?`<span class="mono">${esc(i.c.num||'б/н')}</span><div class="muted">${esc(i.c.date)}${i.c.gen?' · основной':''}</div>`:'<span class="muted">нет</span>'}</td><td>${esc(i.todo)}</td><td>${i.ans?`<b>${esc(i.ans.a||'')}</b> ${esc(i.ans.c||'')}`:'<span class="muted">—</span>'}</td></tr>`).join('')||'<tr><td colspan="7" class="empty">Ничего не найдено</td></tr>'}</tbody></table></div>
+  ${rows.length>pg.length?`<div class="row" style="margin-top:10px"><button class="btn" id="ar-more">Показать ещё</button></div>`:''}</section>`;
+  const re=()=>{arTabRes(b)};
+  $$('[data-sec]',b).forEach(x=>x.onclick=()=>{F.sec=x.dataset.sec;F.lim=200;re()});
+  $('#ar-q',b).oninput=debounce(e=>{F.q=e.target.value;F.lim=200;re();const q=$('#ar-q',b);q.focus();q.setSelectionRange(q.value.length,q.value.length)},300);
+  $('#ar-m',b).onchange=e=>{F.mgr=e.target.value;re()};$('#ar-s',b).onchange=e=>{F.sec=e.target.value;re()};$('#ar-mu',b).onchange=e=>{F.multi=e.target.checked;re()};
+  const mo=$('#ar-more',b);if(mo)mo.onclick=()=>{F.lim+=300;re()};
+  const sk=$('#ar-sk',b);if(sk)sk.onclick=e=>{e.preventDefault();openModal(`<h3>Не сверялись</h3><h4>Закрыты в 1С</h4><ul class="sm">${R.skipped.closed.map(x=>`<li>${esc(x.r.cp)} — № ${esc(x.r.num)} (стр. ${x.r.xl}), в 1С № ${esc(x.c['Номер'])} от ${esc(x.c['Дата'])}</li>`).join('')}</ul>${R.skipped.sch.length?`<h4>Счёт-договоры</h4><ul class="sm">${R.skipped.sch.map(r=>`<li>${esc(r.cp)} — ${esc(r.num)}</li>`).join('')}</ul>`:''}${R.skipped.annul.length?`<h4>Аннулированные / не действует</h4><ul class="sm">${R.skipped.annul.map(r=>`<li>${esc(r.cp)} — ${esc(r.num)} (стр. ${r.xl})</li>`).join('')}</ul>`:''}`)};
+  $$('[data-ar]',b).forEach(tr=>tr.onclick=()=>arItemModal(tr.dataset.ar));
+}
+function arItemModal(key){
+  const i=ARX.res.items.find(x=>x.key===key);if(!i)return;const A=ARS();const o=A.ovr[key]||{};const an=A.ans[key];
+  openModal(`<h3>${esc(i.cp)}</h3><p class="muted sm">Строка описи ${i.xl} · ИНН ${esc(i.inn||'—')} · менеджер ${esc(i.mgr)}${i.multi?' · многосторонний':''}</p>
+  <table class="tbl sm"><tr><th></th><th>Опись</th><th>1С</th></tr>
+  <tr><td>Номер</td><td class="mono">${esc(i.num||'б/н')}</td><td class="mono">${i.c?esc(i.c.num||'б/н'):'—'}</td></tr>
+  <tr><td>Дата</td><td>${esc(arDS(i.dates))}</td><td>${i.c?esc(i.c.date):'—'}</td></tr>
+  <tr><td>Контрагент</td><td>${esc(i.cp)}</td><td>${i.c?esc(i.c.cp):'—'}</td></tr>
+  <tr><td>Наименование / подпись</td><td>${esc(i.orig)} · ${esc(i.sign)}</td><td>${i.c?esc(i.c.name)+(i.c.edo?' · '+esc(i.c.edo):''):'—'}</td></tr></table>
+  <div class="callout"><b>${esc(arSecName(i.sec))}</b><p>${esc(i.todo)}</p>${i.auto?`<p class="muted sm">Автоматически было: ${esc(arSecName(i.auto.sec))} — ${esc(i.auto.todo)}</p>`:''}</div>
+  ${an?`<div class="callout info"><b>Ответ менеджера${an.mgr?' ('+esc(an.mgr)+')':''}:</b> ${esc(an.a||'')} ${esc(an.c||'')}<p class="muted sm">${an.src?esc(an.src)+' · ':''}${an.at?new Date(an.at).toLocaleDateString('ru-RU'):''}</p></div>`:''}
+  <h4>Решение вручную</h4><div class="row" style="gap:8px;flex-wrap:wrap"><select class="inp" id="am-s" style="width:auto"><option value="">Автоматически</option>${AR.ORDER.map(k=>`<option value="${k}" ${o.sec===k?'selected':''}>${esc(arSecName(k))}</option>`).join('')}</select></div>
+  <textarea class="inp" id="am-t" rows="3" style="width:100%;margin-top:8px" placeholder="Текст задачи (если пусто — останется автоматический)">${esc(o.todo||'')}</textarea>
+  <div class="row end" style="margin-top:10px;gap:8px">${an?'<button class="btn" id="am-da">Удалить ответ менеджера</button>':''}<button class="btn" id="am-c">Отмена</button><button class="btn pri" id="am-ok">Сохранить</button></div>`,m=>{
+    m.querySelector('#am-c').onclick=closeModal;
+    const da=m.querySelector('#am-da');if(da)da.onclick=()=>{A.ans[key]={del:1,ts:Date.now()};touch();arRun(false);closeModal();route(true)};
+    m.querySelector('#am-ok').onclick=()=>{const s=m.querySelector('#am-s').value,t=m.querySelector('#am-t').value.trim();A.ovr[key]={sec:s||'',todo:s?t:'',ts:Date.now()};touch();arRun(false);closeModal();route(true);toast('Сохранено','ok')};
+  });
+}
+
+/* ---- Менеджеры ---- */
+function arTabMgr(b){
+  const R=ARX.res,cfg=ARCFG(),A=ARS(),MF=arMgrFiles();
+  const niBy={};R.ni.forEach(x=>{const m=x.mgr||'Не указан';niBy[m]=(niBy[m]||0)+1});
+  const rows=[...MF.entries()].map(([m,L])=>{const ans=L.filter(i=>i.ans&&(i.ans.at||0)>=(ARX.src.at||0)-864e5*60).length;return{m,L,ans,ret:A.ret[m]&&!A.ret[m].del?A.ret[m]:null,ack:A.ack[m],dis:cfg.dismissed[m]}});
+  b.innerHTML=`<section class="card"><p class="muted sm">Файл получают менеджеры с открытыми задачами (без «Всё в порядке» и «Не трогаем»). Исключены: ${esc(cfg.excl.join(', ')||'никто')}. Отметку «Ознакомлен» ставьте, когда менеджер подтвердил письмо; «Файл вернул» ставится сама при загрузке ответов.</p>
+  <div class="tscroll"><table class="tbl sm"><thead><tr><th>Менеджер</th><th class="r">Задач</th>${AR.ORDER.slice(0,5).map(k=>`<th class="r" title="${esc(arSecName(k))}">${esc({ZAV:'Завести',FIX:'Испр. 1С',OPIS:'Испр. опись',DEC:'Бухгалт.',ASK:'Уточнить'}[k])}</th>`).join('')}<th class="r">Ответов</th><th>Ознакомлен</th><th>Файл вернул</th><th></th></tr></thead><tbody>
+  ${rows.map(r=>`<tr><td><b>${esc(r.m)}</b>${r.dis!=null?`<div class="pill warn">уволен${r.dis?' → '+esc(r.dis):''}</div>`:''}${r.L.some(i=>i.multi)?' <span class="pill info">есть многосторонние</span>':''}</td><td class="r"><b>${r.L.length}</b></td>${AR.ORDER.slice(0,5).map(k=>`<td class="r">${r.L.filter(i=>i.sec===k).length||''}</td>`).join('')}<td class="r">${r.ans}/${r.L.length}</td>
+  <td><label><input type="checkbox" data-ack="${esc(r.m)}" ${r.ack&&r.ack.at?'checked':''}> ${r.ack&&r.ack.at?new Date(r.ack.at).toLocaleDateString('ru-RU'):''}</label></td>
+  <td>${r.ret?`✔ ${new Date(r.ret.at).toLocaleDateString('ru-RU')}`:'<span class="muted">—</span>'}</td><td><button class="btn sm" data-mf="${esc(r.m)}">${ic('dl',14)} файл</button></td></tr>`).join('')}</tbody></table></div>
+  <p class="muted sm" style="margin-top:10px">Подтвердили: ${rows.filter(r=>r.ack&&r.ack.at).length} из ${rows.length} · вернули файл: ${rows.filter(r=>r.ret).length} из ${rows.length}.</p></section>
+  <section class="card"><h3>Нет в описи по менеджерам <small class="muted">— только для главбуха</small></h3><div class="chips2">${Object.entries(niBy).sort((a,b)=>b[1]-a[1]).map(([m,n])=>`<span class="pill mute">${esc(m)}: ${n}</span>`).join(' ')}</div></section>`;
+  $$('[data-ack]',b).forEach(x=>x.onchange=()=>{const m=x.dataset.ack;if(x.checked)A.ack[m]={at:Date.now(),ts:Date.now()};else A.ack[m]={at:0,ts:Date.now()};touch();arTabMgr(b)});
+  $$('[data-mf]',b).forEach(x=>x.onclick=()=>arXl('one',x.dataset.mf));
+}
+
+/* ---- Нет в описи ---- */
+function arTabNi(b){
+  const R=ARX.res,N=ARX.N,q=N.q.trim().toLowerCase();const G={};R.ni.forEach(x=>G[x.g]=(G[x.g]||0)+1);
+  const rows=R.ni.filter(x=>(!N.g||x.g===N.g)&&(!q||(x.cp+' '+x.num+' '+x.inn+' '+x.mgr).toLowerCase().includes(q))).sort((a,b)=>(a.mgr||'').localeCompare(b.mgr||'','ru')||AR.dk(a.date).localeCompare(AR.dk(b.date)));
+  b.innerHTML=`<div class="callout warn sm"><b>Этот список менеджерам не показывается.</b> Он уходит главбуху отдельным файлом (кнопка «Файл главбуха»).</div>
+  <section class="card"><div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:10px"><input class="inp" type="search" id="an-q" value="${esc(N.q)}" placeholder="Контрагент, номер, ИНН, менеджер" style="flex:1;min-width:220px"><div class="seg">${['',...Object.keys(G)].map(g=>`<button data-g="${esc(g)}" class="${N.g===g?'on':''}">${g?esc(g)+' · '+G[g]:'Все · '+R.ni.length}</button>`).join('')}</div></div>
+  <div class="tscroll"><table class="tbl sm"><thead><tr><th>Менеджер (1С)</th><th>Контрагент</th><th>ИНН</th><th>№ и дата в 1С</th><th>Наименование в 1С</th><th>Подсказка</th></tr></thead><tbody>${rows.slice(0,N.lim).map(x=>`<tr><td>${esc(x.mgr||'—')}</td><td><b>${esc(x.cp)}</b></td><td>${esc(x.inn||'—')}</td><td class="mono">${esc(x.num||'б/н')}<div class="muted">${esc(x.date)}${x.state==='Закрыт'?' · закрыт':''}</div></td><td>${esc(x.name)}</td><td><span class="pill ${x.g==='Иностранный'?'info':x.g==='Подписан в ЭДО'?'bad':'mute'}">${esc(x.g)}</span><div class="sm">${esc(x.t)}</div></td></tr>`).join('')||'<tr><td colspan="6" class="empty">Пусто</td></tr>'}</tbody></table></div>
+  ${rows.length>N.lim?`<button class="btn" id="an-more" style="margin-top:10px">Показать ещё</button>`:''}</section>`;
+  $('#an-q',b).oninput=debounce(e=>{N.q=e.target.value;arTabNi(b);const x=$('#an-q',b);x.focus();x.setSelectionRange(x.value.length,x.value.length)},300);
+  $$('[data-g]',b).forEach(x=>x.onclick=()=>{N.g=x.dataset.g;arTabNi(b)});const mo=$('#an-more',b);if(mo)mo.onclick=()=>{N.lim+=300;arTabNi(b)};
+}
+
+/* ---- Ответы менеджеров ---- */
+function arTabAns(b){
+  const A=ARS(),MF=arMgrFiles();const ret=Object.entries(A.ret).filter(([m,r])=>MF.has(m)&&r&&!r.del);const hasRet=m=>A.ret[m]&&!A.ret[m].del;
+  b.innerHTML=`<section class="card"><h3>Загрузить заполненные файлы</h3><p class="muted sm">Можно выбрать сразу все файлы, которые прислали менеджеры. Ответы из жёлтых столбцов «Ваш ответ» и «Комментарий» перенесутся в сверку и в следующий раз попадут в файлы как «Ваш прошлый комментарий».</p><div id="aa-dz"></div><div id="aa-log"></div></section>
+  <section class="card"><h3>Кто вернул файл</h3><div class="cols2"><div><b>Вернули (${ret.length})</b><ul class="sm">${ret.sort().map(([m,r])=>`<li>${esc(m)} — ${new Date(r.at).toLocaleDateString('ru-RU')}, ответов ${r.n}</li>`).join('')||'<li class="muted">пока никто</li>'}</ul></div><div><b>Не вернули (${[...MF.keys()].filter(m=>!hasRet(m)).length})</b><ul class="sm">${[...MF.keys()].filter(m=>!hasRet(m)).map(m=>`<li>${esc(m)}${ARCFG().dismissed[m]!=null?' <span class="pill warn">уволен</span>':''}</li>`).join('')||'<li class="muted">все вернули</li>'}</ul></div></div></section>`;
+  $('#aa-dz',b).appendChild(dropzone('Файлы менеджеров .xlsx','.xlsx',fs=>arImportAns(fs).then(log=>{$('#aa-log',b).innerHTML=log;setTimeout(()=>{if(V.cur==='arec')arTabAns(b);$('#aa-log',b)&&($('#aa-log',b).innerHTML=log)},0)}).catch(e=>toast(e.message||'Ошибка','bad',6000)),true));
+}
+async function arImportAns(files){
+  const A=ARS(),R=ARX.res;const byKey=new Map(R.items.map(i=>[i.key,i]));const byInnNum=new Map();R.items.forEach(i=>byInnNum.set((i.inn||'')+'|'+AR.nk(i.num),i));
+  const out=[];
+  for(const f of files){
+    try{
+      const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});const ws=wb.Sheets['Что сделать']||wb.Sheets[wb.SheetNames[0]];
+      const a=XLSX.utils.sheet_to_json(ws,{header:1,defval:null,raw:false});const hr=a.findIndex(r=>r&&r.includes('Ваш ответ'));if(hr<0)throw new Error('нет столбца «Ваш ответ»');
+      const H=a[hr],ix=n=>H.indexOf(n);const title=String((a[0]||[])[0]||'');const mgr=title.split(':')[0].trim()||f.name.replace(/\.xlsx$/i,'');
+      let n=0,miss=0;
+      for(const r of a.slice(hr+1)){if(!r)continue;const an=r[ix('Ваш ответ')],cm=r[ix('Комментарий')];if(!an&&!cm)continue;
+        const it=(ix('Ключ')>=0&&byKey.get(r[ix('Ключ')]))||byInnNum.get((r[ix('ИНН')]||'')+'|'+AR.nk(r[ix('№ договора (опись)')]));if(!it){miss++;continue}
+        A.ans[it.key]={a:an||'',c:cm||'',mgr,src:f.name,at:Date.now(),ts:Date.now()};n++}
+      A.ret[mgr]={at:Date.now(),file:f.name,n,ts:Date.now()};out.push(`<li>✔ <b>${esc(mgr)}</b> — ответов ${n}${miss?`, не сопоставлено ${miss}`:''}</li>`);
+    }catch(e){out.push(`<li class="bad-t">✘ ${esc(f.name)} — ${esc(e.message||e)}</li>`)}
+  }
+  touch();arRun(false);return `<ul class="sm" style="margin-top:10px">${out.join('')}</ul>`;
+}
+
+/* ---- История ---- */
+function arTabHist(b){
+  const runs=Object.values(ARS().runs).sort((a,b)=>b.at-a.at);const D=ARX.res&&arDiff();
+  b.innerHTML=`<section class="card"><h3>Проверки</h3><div class="tscroll"><table class="tbl sm"><thead><tr><th>Дата</th><th>Опись</th><th>1С</th><th class="r">Открыто</th>${AR.ORDER.map(k=>`<th class="r">${esc(arSecName(k))}</th>`).join('')}<th class="r">Нет в описи</th></tr></thead><tbody>${runs.map(r=>`<tr><td>${new Date(r.at).toLocaleString('ru-RU')}</td><td>${esc(r.opis||'')}</td><td>${esc(r.c1||'')}</td><td class="r"><b>${r.stats.open}</b></td>${AR.ORDER.map(k=>`<td class="r">${r.stats[k]||0}</td>`).join('')}<td class="r">${r.ni}</td></tr>`).join('')||'<tr><td colspan="12" class="empty">Проверок ещё не было</td></tr>'}</tbody></table></div></section>
+  ${D?`<section class="card"><h3>Что изменилось с ${new Date(D.p.at).toLocaleDateString('ru-RU')}</h3><div class="cols2"><div><b>Закрыто (${D.fixed.length})</b><ul class="sm">${D.fixed.slice(0,200).map(x=>`<li>${x.now?esc(x.now.cp)+' — '+esc(x.now.num):esc(x.key)} <span class="muted">(было: ${esc(arSecName(x.was))}${x.now?'':', строки больше нет'})</span></li>`).join('')}</ul></div><div><b>Новые (${D.nw.length})</b><ul class="sm">${D.nw.slice(0,200).map(i=>`<li>${esc(i.cp)} — ${esc(i.num)} · ${esc(arSecName(i.sec))} · ${esc(i.mgr)}</li>`).join('')}</ul></div></div></section>`:''}`;
+}
+
+/* ---- Настройки ---- */
+function arTabCfg(b){
+  const c=ARCFG();
+  b.innerHTML=`<section class="card"><h3>Настройки сверки</h3><div class="cols2"><label>Организация в 1С<br><input class="inp" id="ac-org" value="${esc(c.org)}" style="width:100%"></label><label>Лист описи<br><input class="inp" id="ac-sh" value="${esc(c.sheet)}" style="width:100%"></label><label>Договоры с (дд.мм.гггг)<br><input class="inp" id="ac-from" value="${esc(c.from)}" style="width:100%"></label></div></section>
+  <section class="card"><h3>Справочник менеджеров</h3><div class="cols2">
+  <label>Не делать файл (например, директор) — по одному в строке<br><textarea class="inp" id="ac-ex" rows="4" style="width:100%">${esc(c.excl.join('\n'))}</textarea></label>
+  <label>Уволенные: «Фамилия Имя = Руководитель» — по одному в строке<br><textarea class="inp" id="ac-dis" rows="4" style="width:100%">${esc(Object.entries(c.dismissed).map(([m,h])=>m+(h?' = '+h:'')).join('\n'))}</textarea></label>
+  <label>Как менеджер записан в описи = как в 1С (если приложение не сопоставило само)<br><textarea class="inp" id="ac-al" rows="4" style="width:100%">${esc(Object.entries(c.aliases).map(([a,b])=>a+' = '+b).join('\n'))}</textarea></label></div>
+  <div class="row end" style="margin-top:10px"><button class="btn pri" id="ac-ok">Сохранить и пересчитать</button></div></section>
+  <section class="card"><h3>Ручные решения и ответы</h3><p class="sm">Ручных решений: ${Object.values(ARS().ovr).filter(o=>o&&o.sec).length}, ответов менеджеров: ${Object.values(ARS().ans).filter(a=>a&&!a.del).length}.</p><button class="btn" id="ac-clr">Очистить ответы менеджеров</button></section>`;
+  const lines=id=>$(id,b).value.split('\n').map(s=>s.trim()).filter(Boolean);
+  $('#ac-ok',b).onclick=()=>{
+    const from=$('#ac-from',b).value.trim();if(!/^\d\d\.\d\d\.\d{4}$/.test(from))return toast('Дата — в формате дд.мм.гггг','bad');
+    const dis={};lines('#ac-dis').forEach(l=>{const[m,h]=l.split('=').map(s=>s.trim());if(m)dis[m]=h||''});const al={};lines('#ac-al').forEach(l=>{const[a,b2]=l.split('=').map(s=>s.trim());if(a&&b2)al[a]=b2});
+    ARS().cfg={org:$('#ac-org',b).value.trim(),sheet:$('#ac-sh',b).value.trim()||'ТЕХНОСТАЙЛ',from,excl:lines('#ac-ex'),dismissed:dis,aliases:al,ts:Date.now()};touch();arRun(false);toast('Сохранено','ok');route(true);
+  };
+  $('#ac-clr',b).onclick=async()=>{if(!await confirmBox('Удалить все загруженные ответы менеджеров и отметки «вернул файл»?','Удалить'))return;const A=ARS(),t=Date.now();for(const k in A.ans)A.ans[k]={del:1,ts:t};for(const k in A.ret)A.ret[k]={del:1,at:0,ts:t};touch();arRun(false);route(true)};
+}
+/* ---- Выгрузки Excel (ExcelJS, загружается по требованию) ---- */
+const AR_LIB={xl:'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js',zip:'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'};
+async function arLibs(zip){try{if(!window.ExcelJS)await loadScript(AR_LIB.xl);if(zip&&!window.JSZip)await loadScript(AR_LIB.zip)}catch(e){throw new Error('Не удалось загрузить модуль Excel — нужен интернет')}}
+const AX={NAVY:'FF1F3864',YEL:'FFFFF2CC',GRN:'FFC6E0B4',F:'Arial'};
+const axFill=c=>({type:'pattern',pattern:'solid',fgColor:{argb:c.length===6?'FF'+c:c}});
+const axBorder={top:{style:'thin',color:{argb:'FFD1D5DB'}},left:{style:'thin',color:{argb:'FFD1D5DB'}},bottom:{style:'thin',color:{argb:'FFD1D5DB'}},right:{style:'thin',color:{argb:'FFD1D5DB'}}};
+const axDate=s=>{if(!s||!/^\d\d\.\d\d\.\d{4}$/.test(s))return s||null;const[d,m,y]=s.split('.').map(Number);return new Date(Date.UTC(y,m-1,d))};
+function axBand(ws,title,sub,ncol){
+  ws.views=[{showGridLines:false}];
+  for(const[r,t,sz,col]of[[1,title,15,'FFFFFFFF'],[2,sub,10,'FFDCE6F2']]){const row=ws.getRow(r);row.height=r===1?26:18;for(let c=1;c<=ncol;c++){row.getCell(c).fill=axFill(AX.NAVY)}const x=row.getCell(1);x.value=t;x.font={name:AX.F,size:sz,bold:r===1,color:{argb:col}}}
+}
+function axTable(ws,hr,cols,rows,opt={}){
+  const h=ws.getRow(hr);h.height=30;
+  cols.forEach((c,j)=>{const x=h.getCell(j+1);x.value=c.h;x.font={name:AX.F,bold:true,color:{argb:'FFFFFFFF'},size:10};x.fill=axFill(c.ans?'FFBF8F00':AX.NAVY);x.alignment={wrapText:true,vertical:'middle'};x.border=axBorder;ws.getColumn(j+1).width=c.w||14;if(c.hide)ws.getColumn(j+1).hidden=true});
+  rows.forEach((r,i)=>{const row=ws.getRow(hr+1+i);cols.forEach((c,j)=>{const x=row.getCell(j+1);let v=r[j];if(c.date)v=axDate(v);x.value=v??null;x.font={name:AX.F,size:10,bold:!!c.bold};x.alignment={wrapText:true,vertical:'top'};x.border=axBorder;if(c.date)x.numFmt='dd.mm.yyyy';if(c.text)x.numFmt='@';
+    if(c.ans){x.fill=axFill(AX.YEL);x.protection={locked:false}}
+    if(c.fill&&c.fill(r))x.fill=axFill(c.fill(r))})});
+  cols.forEach((c,j)=>{if(c.list&&rows.length){const L=String.fromCharCode(65+j);ws.dataValidations.add(`${L}${hr+1}:${L}${hr+rows.length}`,{type:'list',allowBlank:true,formulae:['"'+c.list.join(',')+'"'],showErrorMessage:true,errorStyle:'warning',errorTitle:'Выберите из списка',error:'Выберите вариант из выпадающего списка'})}});
+  ws.autoFilter={from:{row:hr,column:1},to:{row:hr+Math.max(rows.length,1),column:cols.length}};
+  ws.views=[{state:'frozen',ySplit:hr,xSplit:opt.xs||0,showGridLines:false}];
+}
+const axProtect=ws=>ws.protect('',{selectLockedCells:true,selectUnlockedCells:true,autoFilter:true,sort:true,formatColumns:true,formatRows:true});
+const AXSECF=s=>(AR.SEC[s]||{}).fill;
+const axToday=()=>new Date().toLocaleDateString('ru-RU');
+async function axMgrBook(m,L){
+  const wb=new ExcelJS.Workbook();wb.creator='СХЭД · Учёт';const ws=wb.addWorksheet('Что сделать');const cfg=ARCFG();
+  const cols=[{h:'Что сделать',w:20,bold:true,fill:r=>AXSECF(r[13])},{h:'Контрагент',w:34},{h:'ИНН',w:13,text:true},{h:'№ договора (опись)',w:24,text:true},{h:'Дата (опись)',w:12,date:true},{h:'Вторая дата',w:12,date:true},{h:'№ в 1С',w:22,text:true},{h:'Дата в 1С',w:12,date:true},{h:'Подробно',w:60},{h:'Ваш прошлый комментарий',w:30},{h:'Ваш ответ',w:26,ans:true,list:AR_ANS},{h:'Комментарий',w:34,ans:true},{h:'Ключ',w:8,hide:true},{h:'Код раздела',w:2,hide:true}];
+  const rows=L.slice().sort((a,b)=>AR.ORDER.indexOf(a.sec)-AR.ORDER.indexOf(b.sec)).map(i=>{const ds=i.dates.slice().sort((a,b)=>AR.dk(a).localeCompare(AR.dk(b)));return[arSecName(i.sec),i.cp+(i.multi?' (многосторонний)':''),i.inn,i.num||'б/н',ds[0]||null,ds.length>1?ds[ds.length-1]:null,i.c?(i.c.num||'б/н')+(i.c.gen?' (основной)':''):'— нет',i.c?i.c.date:null,i.todo,i.ans&&!i.ans.del?[i.ans.a,i.ans.c].filter(Boolean).join(' · '):null,null,null,i.key,i.sec]});
+  axBand(ws,m+': договоры для проверки',`Сверка описи и 1С от ${axToday()} · задач: ${L.length}`,12);
+  const dis=cfg.dismissed[m];
+  const n3=ws.getCell('A3');n3.value=(dis!=null?`Сотрудник уволен — файл заполняет руководитель${dis?' ('+dis+')':''}. `:'')+'Заполните жёлтые столбцы: выберите ответ из списка и при необходимости напишите комментарий. Изменения в 1С вносит бухгалтерия — напишите ей напрямую. Затем верните файл.';n3.font={name:AX.F,italic:true,color:{argb:dis!=null?'FFC00000':'FF6B7280'},bold:dis!=null};
+  axTable(ws,5,cols,rows,{xs:2});axProtect(ws);
+  return wb;
+}
+async function axMain(){
+  const R=ARX.res,wb=new ExcelJS.Workbook(),D=arDiff(),A=ARS(),MF=arMgrFiles();
+  // Сводка
+  let ws=wb.addWorksheet('Сводка');axBand(ws,'Сверка описи и 1С — '+axToday(),`Опись: ${ARX.src.opisName} · 1С: ${ARX.src.c1Name} · договоры с ${ARCFG().from}`,8);
+  const S=R.stats;let r=4;const put=(c,v,o={})=>{const x=ws.getCell(r,c);x.value=v;x.font={name:AX.F,size:o.s||10,bold:!!o.b,color:o.col?{argb:o.col}:undefined};if(o.fill)x.fill=axFill(o.fill);x.border=o.br?axBorder:undefined;return x};
+  put(1,'Раздел',{b:true,fill:'FFD9E1F2',br:1});put(2,'Договоров',{b:true,fill:'FFD9E1F2',br:1});put(3,'Кто делает',{b:true,fill:'FFD9E1F2',br:1});r++;
+  for(const k of AR.ORDER){put(1,arSecName(k),{fill:AR.SEC[k].fill,br:1,b:true});put(2,S[k]||0,{br:1});put(3,AR.SEC[k].who,{br:1});r++}
+  put(1,'Открытых задач',{b:true,br:1});put(2,S.open,{b:true,br:1});r++;put(1,'Нет в описи (для главбуха)',{b:true,br:1});put(2,R.ni.length,{b:true,br:1});r+=2;
+  put(1,'Не сверялись',{b:true});r++;for(const[t,n]of[['закрыты в 1С',R.skipped.closed.length],['счёт-договоры',R.skipped.sch.length],['аннулированы / не действует',R.skipped.annul.length],['без даты в описи',R.skipped.nodate]]){put(1,t);put(2,n);r++}
+  if(D){r++;put(1,'С прошлой сверки ('+new Date(D.p.at).toLocaleDateString('ru-RU')+')',{b:true});r++;for(const[t,n]of[['закрыто',D.fixed.length],['новых',D.nw.length],['осталось',D.still.length]]){put(1,t);put(2,n);r++}}
+  ws.getColumn(1).width=34;ws.getColumn(2).width=12;ws.getColumn(3).width=16;
+  // Менеджеры
+  ws=wb.addWorksheet('Менеджеры');axBand(ws,'Задачи по менеджерам','Ответы — из загруженных файлов менеджеров',11);
+  axTable(ws,4,[{h:'Менеджер',w:28,bold:true},...AR.ORDER.slice(0,5).map(k=>({h:arSecName(k),w:12})),{h:'Всего задач',w:10,bold:true},{h:'Ответов',w:10},{h:'Ознакомлен',w:12},{h:'Файл вернул',w:12},{h:'Примечание',w:30}],
+    [...MF.entries()].map(([m,L])=>[m,...AR.ORDER.slice(0,5).map(k=>L.filter(i=>i.sec===k).length||null),L.length,L.filter(i=>i.ans&&!i.ans.del).length,A.ack[m]&&A.ack[m].at?new Date(A.ack[m].at).toLocaleDateString('ru-RU'):'',A.ret[m]&&!A.ret[m].del?new Date(A.ret[m].at).toLocaleDateString('ru-RU'):'',ARCFG().dismissed[m]!=null?'уволен'+(ARCFG().dismissed[m]?' → '+ARCFG().dismissed[m]:''):'']));
+  // Все договоры
+  ws=wb.addWorksheet('Все договоры');axBand(ws,'Все договоры сверки — '+R.items.length,'Фильтры в заголовках таблицы',17);
+  axTable(ws,4,[{h:'Раздел',w:18,bold:true,fill:r=>AXSECF(r[17])},{h:'Кто делает',w:12},{h:'Что сделать',w:55},{h:'Менеджер',w:20},{h:'Контрагент (опись)',w:32},{h:'ИНН',w:13,text:true},{h:'№ договора (опись)',w:22,text:true},{h:'Даты (опись)',w:20},{h:'Строка в описи',w:8},{h:'Контрагент в 1С',w:28},{h:'№ в 1С',w:22,text:true},{h:'Дата в 1С',w:12,date:true},{h:'Наименование в 1С',w:40},{h:'Многосторонний',w:10},{h:'Решение вручную',w:12},{h:'Ответ менеджера',w:20},{h:'Комментарий менеджера',w:34},{h:'_',hide:true}],
+    R.items.slice().sort((a,b)=>AR.ORDER.indexOf(a.sec)-AR.ORDER.indexOf(b.sec)||a.mgr.localeCompare(b.mgr,'ru')).map(i=>[arSecName(i.sec),(AR.SEC[i.sec]||{}).who,i.todo,i.mgr,i.cp,i.inn,i.num,arDS(i.dates),i.xl,i.c?i.c.cp:null,i.c?i.c.num:null,i.c?i.c.date:null,i.c?i.c.name:null,i.multi?'да':null,i.manual?'да':null,i.ans&&!i.ans.del?i.ans.a:null,i.ans&&!i.ans.del?i.ans.c:null,i.sec]),{xs:1});
+  axNi(wb,R.ni.filter(x=>x.g!=='Иностранный'),'Нет в описи',false);axNi(wb,R.ni.filter(x=>x.g==='Иностранный'),'Иностранные',false);
+  if(D){ws=wb.addWorksheet('Что изменилось');axBand(ws,'Что изменилось с '+new Date(D.p.at).toLocaleDateString('ru-RU'),'',6);
+    axTable(ws,4,[{h:'Изменение',w:14,bold:true},{h:'Менеджер',w:22},{h:'Контрагент',w:34},{h:'№',w:22},{h:'Было',w:20},{h:'Стало',w:20}],[...D.fixed.map(x=>['Закрыто',x.now?x.now.mgr:'',x.now?x.now.cp:x.key,x.now?x.now.num:'',arSecName(x.was),x.now?arSecName(x.now.sec):'строки больше нет']),...D.nw.map(i=>['Новое',i.mgr,i.cp,i.num,D.p.st[i.key]?arSecName(D.p.st[i.key]):'—',arSecName(i.sec)])])}
+  ws=wb.addWorksheet('Не сверялись');axBand(ws,'Не сверялись по правилам','Закрытые в 1С, счёт-договоры, аннулированные',5);
+  axTable(ws,4,[{h:'Причина',w:20},{h:'Контрагент',w:34},{h:'№ (опись)',w:24},{h:'Даты (опись)',w:20},{h:'Строка',w:8}],[...R.skipped.closed.map(x=>['Закрыт в 1С',x.r.cp,x.r.num,arDS(x.r.dates),x.r.xl]),...R.skipped.sch.map(x=>['Счёт-договор',x.cp,x.num,arDS(x.dates),x.xl]),...R.skipped.annul.map(x=>['Аннулирован / не действует',x.cp,x.num,arDS(x.dates),x.xl])]);
+  return wb;
+}
+function axNi(wb,L,title,ans){
+  const ws=wb.addWorksheet(title);axBand(ws,title+' — '+L.length,title==='Иностранные'?'Иностранные компании (ИНН в 1С пустой). В описи иностранных договоров нет — решите, вносить ли':'Договоры есть в 1С, но нет в описи. Менеджерам не показывается',ans?11:9);
+  const cols=[{h:'Менеджер (1С)',w:22},{h:'Контрагент (1С)',w:34},{h:'ИНН',w:13,text:true},{h:'№ в 1С',w:22,text:true},{h:'Дата в 1С',w:12,date:true},{h:'Статус ЭДО',w:14},{h:'Наименование в 1С',w:42},{h:'Подсказка',w:20,bold:true},{h:'Что видно по описи',w:50}];
+  if(ans)cols.push({h:'Решение',w:30,ans:true,list:AR_NIDEC.concat(title==='Иностранные'?['Не вносим в опись (иностранный)']:[])},{h:'Комментарий',w:34,ans:true});
+  axTable(ws,4,cols,L.slice().sort((a,b)=>(a.mgr||'').localeCompare(b.mgr||'','ru')||AR.dk(a.date).localeCompare(AR.dk(b.date))).map(x=>[x.mgr||'Не указан',x.cp,x.inn,x.num||'б/н',x.date,x.edo,x.name,x.g,x.t,null,null].slice(0,cols.length)),{xs:2});
+  if(ans)axProtect(ws);return ws;
+}
+async function axGB(){
+  const R=ARX.res,wb=new ExcelJS.Workbook();const ws=wb.addWorksheet('Сводка');
+  axBand(ws,'Договоры в 1С, которых нет в описи','Для главного бухгалтера · договоры с '+ARCFG().from+' · '+axToday(),8);
+  const G=['Подписан в ЭДО','Похожий номер в описи','Контрагент в описи есть','Контрагента нет в описи','Иностранный'];const by={};R.ni.forEach(x=>{const m=x.mgr||'Не указан';(by[m]=by[m]||[]).push(x)});
+  axTable(ws,4,[{h:'Менеджер (1С)',w:28,bold:true},{h:'Всего',w:9,bold:true},...G.map(g=>({h:g,w:14}))],Object.entries(by).sort((a,b)=>b[1].length-a[1].length).map(([m,L])=>[m,L.length,...G.map(g=>L.filter(x=>x.g===g).length||null)]));
+  axNi(wb,R.ni.filter(x=>x.g!=='Иностранный'),'Список',true);axNi(wb,R.ni.filter(x=>x.g==='Иностранный'),'Иностранные',true);
+  const nu=R.items.filter(i=>i.mgr==='Не указан'&&!['OK','KEEP'].includes(i.sec));
+  if(nu.length){const w2=wb.addWorksheet('Без менеджера');axBand(w2,'Задачи без ответственного менеджера','Менеджер не указан ни в описи, ни в 1С',5);axTable(w2,4,[{h:'Раздел',w:18},{h:'Контрагент',w:34},{h:'№ (опись)',w:24},{h:'Даты',w:20},{h:'Что сделать',w:60}],nu.map(i=>[arSecName(i.sec),i.cp,i.num,arDS(i.dates),i.todo]))}
+  return wb;
+}
+async function axSave(wb,name){const buf=await wb.xlsx.writeBuffer();download(name,new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}))}
+const axSafe=s=>String(s).replace(/[\\/:*?"<>|]+/g,' ').trim();
+async function arXl(kind,mgr){
+  if(!ARX.res)return;const d=new Date().toLocaleDateString('ru-RU');
+  try{
+    toast('Готовлю файл…','ok',1500);await arLibs(kind==='mgr');
+    if(kind==='main')await axSave(await axMain(),`Сверка описи и 1С — ${d}.xlsx`);
+    else if(kind==='gb')await axSave(await axGB(),`Нет в описи — для главного бухгалтера — ${d}.xlsx`);
+    else if(kind==='one'){const L=arMgrFiles().get(mgr);if(!L)return toast('У менеджера нет задач','bad');await axSave(await axMgrBook(mgr,L),axSafe(mgr)+'.xlsx')}
+    else if(kind==='mgr'){
+      const z=new JSZip(),MF=arMgrFiles(),cfg=ARCFG();const f=z.folder('Файлы менеджерам');
+      for(const[m,L]of MF){const wb=await axMgrBook(m,L);f.file(axSafe(m)+'.xlsx',await wb.xlsx.writeBuffer())}
+      const wb=new ExcelJS.Workbook();const ws=wb.addWorksheet('Оглавление');axBand(ws,'Файлы менеджерам — сверка '+d,'Выложите файлы на Google Диск и вставьте ссылки в столбец «Ссылка»',5);
+      axTable(ws,4,[{h:'Менеджер',w:30,bold:true},{h:'Задач',w:8},{h:'Файл',w:34},{h:'Примечание',w:34},{h:'Ссылка',w:40}],[...MF.entries()].map(([m,L])=>[m,L.length,axSafe(m)+'.xlsx',cfg.dismissed[m]!=null?'уволен — заполняет руководитель'+(cfg.dismissed[m]?' '+cfg.dismissed[m]:''):'',null]));
+      z.file('Оглавление.xlsx',await wb.xlsx.writeBuffer());
+      download(`Файлы менеджерам — ${d}.zip`,await z.generateAsync({type:'blob'}));
+    }
+    toast('Файл готов','ok');
+  }catch(e){console.error(e);toast(e.message||'Не удалось сделать файл','bad',6000)}
+}
+
 /* ===== запуск приложения ===== */
 const NAVG=[
-  {items:[['overview','Старт','home'],['compare','Сверка','scale'],['exports','Выгрузки менеджерам','users'],['contracts','Найти договор','file']]},
+  {items:[['overview','Старт','home'],['compare','Сверка','scale'],['arec','Сверка описи и 1С','scale'],['exports','Выгрузки менеджерам','users'],['contracts','Найти договор','file']]},
   {t:'Работа',items:[['managers','Менеджеры','users'],['report','Отчёт для главбуха','print'],['pairs','Спорные совпадения','scale']]},
   {t:'Ещё',fold:true,items:[['today','Сегодня','check'],['intake','Новый документ','plus'],['recon','Что где есть','scale'],['uploads','Источники и загрузки','up'],['docs','Документы в архивах','folder'],['attach','Приложения','clip'],['pack','Пакеты в СХЭД','box'],['ctrl/orig','Оригиналы','shield'],['ctrl/edo','ЭДО или бумага','check'],['ctrl/dups','Дубли','copy'],['ctrl/attr','Атрибуты СХЭД','search'],['ctrl/ver','Версии описи','list'],['access','Доступ: главбух и ИТ','key'],['tracker','Трекер доработок','list'],['ideas','Идеи','bulb'],['settings','Настройки','gear']]}
 ];
@@ -4741,7 +5284,7 @@ function route(ev){
   document.body.classList.remove('navopen');if(!silent){closeDrawer();closeModal()}
   try{V[v](VIEWEL,sub||undefined)}catch(e){console.error(e);VIEWEL.innerHTML=`<div class="card"><h3>Ошибка отображения</h3><pre class="sm">${esc(e.stack||e)}</pre></div>`}
   try{addHint(v,sub)}catch(e){noteErr('Подсказки',e)}
-  if(v!=='overview'&&v!=='compare'&&v!=='today'&&!VIEW)remMount(VIEWEL);
+  if(v!=='overview'&&v!=='compare'&&v!=='today'&&v!=='arec'&&!VIEW)remMount(VIEWEL);
   if(silent)window.scrollTo(0,y0);
   else if(UIMEM.restoreY!=null){const y=UIMEM.restoreY;UIMEM.restoreY=null;window.scrollTo(0,0);[0,120,400,900].forEach(t=>setTimeout(()=>window.scrollTo(0,y),t))}
   else window.scrollTo(0,0);
@@ -5723,7 +6266,7 @@ setTimeout(bkTick,25000);setInterval(bkTick,10*60*1000);
 
 
 /* ===== feat3: диагностика ===== */
-const APP_BUILD='2026-11-02a';
+const APP_BUILD='2026-11-18a';
 window.__errs=window.__errs||[];
 /* единая точка для «тихих» ошибок: пишет в журнал диагностики и, если ошибка влияет на данные, один раз за сеанс показывает предупреждение */
 const _errShown=new Set();
